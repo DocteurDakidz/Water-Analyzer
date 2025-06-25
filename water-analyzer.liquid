@@ -1,9 +1,9 @@
 {% comment %}
 =============================================================================
-SECTION SHOPIFY 2.0 - ANALYSEUR EAU - RECHERCHE GÉOGRAPHIQUE ÉTENDUE
+SECTION SHOPIFY 2.0 - ANALYSEUR EAU - ALGORITHME SCIENTIFIQUE v5.0
 =============================================================================
-Interface avec fallback automatique vers les communes voisines
-Version 4.4 - Fallback Géographique - CORRECTIFS
+Interface avec algorithme scientifique et calcul de fiabilité
+Version 5.0 - Algorithme Scientifique Life Water
 =============================================================================
 {% endcomment %}
 
@@ -12,7 +12,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     <div class="water-analyzer-container">
       
       <div class="water-analyzer-header">
-        <h2 class="h1">{{ section.settings.title | default: "Analyseur de Qualité de l'Eau" }}</h2>
+        <h2 class="h1">{{ section.settings.title | default: "Analyseur Scientifique de Qualité de l'Eau" }}</h2>
         {% if section.settings.description != blank %}
           <div class="water-analyzer-description rte">
             {{ section.settings.description }}
@@ -23,8 +23,9 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
       <div id="analysis-tool-container-{{ section.id }}" class="analysis-tool-container">
         
         <div class="analysis-tool-header">
-          <h3>🔬 Outil d'Analyse de Qualité d'Eau</h3>
-          <p>Découvrez la qualité de votre eau potable grâce aux données officielles françaises (Hubeau).</p>
+          <h3>🔬 Outil d'Analyse Scientifique v5.0</h3>
+          <p>Découvrez la qualité de votre eau potable grâce à notre <strong>algorithme scientifique</strong> basé sur les normes OMS et UE.</p>
+          <p><strong>Nouveauté :</strong> Calcul de fiabilité transparent avec bénéfice du doute scientifique pour les paramètres non testés.</p>
           <p><small>💡 Si aucune donnée n'est disponible pour votre commune, nous rechercherons automatiquement dans les communes voisines.</small></p>
         </div>
 
@@ -61,7 +62,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
                 >
                 <label for="analysis-detailed-{{ section.id }}" class="form__checkbox-label">
                   <span class="form__checkbox-text">
-                    Analyse approfondie (inclut les recommandations personnalisées et détails techniques)
+                    Analyse approfondie (inclut les détails techniques et recommandations avancées)
                   </span>
                 </label>
               </div>
@@ -70,7 +71,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
 
           <div class="form__submit">
             <button type="button" class="button button--primary" id="start-water-analysis-{{ section.id }}">
-              <span>🔍 Analyser la qualité de l'eau</span>
+              <span>🧪 Analyser avec l'algorithme scientifique</span>
               <div class="loading-overlay__spinner hidden">
                 <svg aria-hidden="true" focusable="false" role="presentation" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
                   <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
@@ -102,12 +103,16 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
                 <span class="step-icon">🧮</span>
                 <span class="step-text">Analyse</span>
               </div>
+              <div class="step" id="step-scoring-{{ section.id }}">
+                <span class="step-icon">🎯</span>
+                <span class="step-text">Scoring</span>
+              </div>
             </div>
           </div>
         </div>
 
         <div id="analysis-results-{{ section.id }}" class="analysis-results" style="display: none;">
-          <!-- Les résultats Life Water seront affichés ici après l'analyse -->
+          <!-- Les résultats Life Water v5.0 seront affichés ici après l'analyse -->
         </div>
 
       </div>
@@ -251,7 +256,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     line-height: 1.4;
   }
 
-  /* ===== LOADING ===== */
+  /* ===== LOADING AMÉLIORÉ v5.0 ===== */
   .analysis-loading {
     text-align: center;
     padding: 3rem;
@@ -266,12 +271,13 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     margin: 2rem 0;
     font-size: 1.6rem;
     color: rgb(var(--color-foreground));
+    min-height: 2.4rem;
   }
 
   .progress-steps {
     display: flex;
     justify-content: center;
-    gap: 2rem;
+    gap: 1.5rem;
     margin-top: 3rem;
   }
 
@@ -282,6 +288,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     gap: 0.8rem;
     opacity: 0.3;
     transition: opacity var(--duration-default) ease;
+    min-width: 8rem;
   }
 
   .step.active {
@@ -306,6 +313,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
   .step-text {
     font-size: 1.3rem;
     font-weight: 500;
+    text-align: center;
   }
 
   .form__message {
@@ -317,7 +325,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     margin-top: 0.5rem;
   }
 
-  /* ===== STYLES LIFE WATER ===== */
+  /* ===== STYLES LIFE WATER v5.0 ===== */
   .life-water-report {
     border-radius: 15px;
     overflow: hidden;
@@ -426,7 +434,7 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     border-radius: 0 10px 10px 0;
   }
   
-  .details-techniques {
+  .contributions-section {
     background: #f8f9fa;
     border-left: 5px solid #6c757d;
     padding: 20px;
@@ -448,28 +456,6 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
   .life-water-report li {
     margin: 8px 0;
   }
-  
-  .life-water-report table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px 0;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  }
-  
-  .life-water-report th, 
-  .life-water-report td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #dee2e6;
-  }
-  
-  .life-water-report th {
-    background: #f8f9fa;
-    font-weight: 600;
-  }
 
   /* ===== RESPONSIVE ===== */
   @media screen and (max-width: 749px) {
@@ -482,7 +468,12 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
     }
 
     .progress-steps {
-      gap: 1.5rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .step {
+      min-width: 6rem;
     }
 
     .score-display {
@@ -505,8 +496,9 @@ Version 4.4 - Fallback Géographique - CORRECTIFS
   }
 </style>
 
-<!-- Chargement du fichier JavaScript avec fallback géographique -->
-<script src="{{ 'water-scoring.js' | asset_url }}" defer></script>
+<!-- Chargement des fichiers JavaScript v5.0 -->
+<script src="{{ 'baremes-eau.js' | asset_url }}" defer></script>
+<script src="{{ 'scoring-eau.js' | asset_url }}" defer></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -525,7 +517,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let selectedAddress = null;
   let debounceTimer = null;
 
-  console.log('🚀 ANALYSEUR EAU - VERSION FALLBACK GÉOGRAPHIQUE INITIALISÉE');
+  console.log('🚀 ANALYSEUR EAU v5.0 - ALGORITHME SCIENTIFIQUE INITIALISÉ');
 
   // ===== FONCTIONS UTILITAIRES ===== 
   
@@ -618,10 +610,11 @@ document.addEventListener('DOMContentLoaded', function() {
     showAddressStatus(`✅ Adresse validée - Code commune: ${codeCommune}`, 'success');
   }
 
-  // ===== AFFICHAGE RÉSULTATS =====
+  // ===== AFFICHAGE RÉSULTATS v5.0 =====
   
   function displayLifeWaterResults(scoreResult, address, parametersData) {
-    console.log('=== AFFICHAGE RÉSULTATS LIFE WATER AVEC FALLBACK ===');
+    console.log('=== AFFICHAGE RÉSULTATS LIFE WATER v5.0 ===');
+    console.log('Score:', scoreResult.score, 'Fiabilité:', scoreResult.fiabilite + '%');
     
     if (!analysisResults) return;
     
@@ -638,32 +631,54 @@ document.addEventListener('DOMContentLoaded', function() {
     analysisResults.innerHTML = htmlLifeWater;
     analysisResults.style.display = 'block';
     
-    // Animation du score
+    // Animation du score avec fiabilité
     setTimeout(() => {
       const scoreNumber = analysisResults.querySelector('.score-number');
+      const fiabilityFill = analysisResults.querySelector('.fiabilite-fill');
+      const contributionFills = analysisResults.querySelectorAll('.contribution-fill');
+      
+      // Animation score principal
       if (scoreNumber && !isNaN(scoreResult.score)) {
         let currentScore = 0;
         const targetScore = scoreResult.score;
         const duration = 1500;
         const increment = targetScore / (duration / 16);
         
-        const animate = () => {
+        const animateScore = () => {
           currentScore += increment;
           if (currentScore >= targetScore) {
             scoreNumber.textContent = targetScore;
           } else {
             scoreNumber.textContent = Math.floor(currentScore);
-            requestAnimationFrame(animate);
+            requestAnimationFrame(animateScore);
           }
         };
         
-        animate();
+        animateScore();
       }
+      
+      // Animation barre de fiabilité
+      if (fiabilityFill) {
+        setTimeout(() => {
+          fiabilityFill.style.width = scoreResult.fiabilite + '%';
+        }, 500);
+      }
+      
+      // Animation barres de contribution
+      if (contributionFills) {
+        contributionFills.forEach((fill, index) => {
+          setTimeout(() => {
+            const width = fill.parentElement.nextElementSibling.textContent.split('/')[0];
+            fill.style.width = width + '%';
+          }, 700 + index * 100);
+        });
+      }
+      
     }, 100);
     
     analysisResults.scrollIntoView({ behavior: 'smooth', block: 'center' });
     
-    console.log('✅ AFFICHAGE LIFE WATER AVEC FALLBACK TERMINÉ');
+    console.log('✅ AFFICHAGE LIFE WATER v5.0 TERMINÉ');
   }
 
   // ===== ÉVÉNEMENTS =====
@@ -694,12 +709,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Bouton d'analyse avec fallback géographique
+  // Bouton d'analyse avec algorithme scientifique v5.0
   if (startWaterAnalysisBtn) {
     startWaterAnalysisBtn.addEventListener('click', async function(e) {
       e.preventDefault();
       
-      console.log('=== DÉBUT ANALYSE EAU AVEC FALLBACK ===');
+      console.log('=== DÉBUT ANALYSE EAU v5.0 - ALGORITHME SCIENTIFIQUE ===');
       
       if (!selectedAddress) {
         showAddressError(true);
@@ -738,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const lat = selectedAddress.geometry.coordinates[1]; // latitude
         const lon = selectedAddress.geometry.coordinates[0]; // longitude
         
-        // 🔥 NOUVELLE FONCTION: Recherche avec fallback géographique
+        // Recherche avec fallback géographique
         const hubeauResult = await fetchHubeauDataWithFallback(codeCommune, lat, lon, 20);
         
         // Mise à jour du message selon le type de source
@@ -758,11 +773,19 @@ document.addEventListener('DOMContentLoaded', function() {
         // ÉTAPE 3 : Analyse
         updateProgressStep('analysis', 'active');
         if (loadingText) {
-          loadingText.textContent = 'Calcul du score de qualité...';
+          loadingText.textContent = 'Identification des catégories testées...';
         }
         
-        // 🔥 CALCUL AVEC INFO SOURCE
-        const scoreResult = calculateWaterQualityScore(
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // ÉTAPE 4 : Scoring scientifique v5.0
+        updateProgressStep('scoring', 'active');
+        if (loadingText) {
+          loadingText.textContent = 'Calcul scientifique avec bénéfice du doute...';
+        }
+        
+        // 🔥 NOUVEAU: Algorithme scientifique v5.0
+        const scoreResult = calculateLifeWaterScore(
           hubeauResult.parametersData, 
           { analyseApprofondie }, 
           hubeauResult.sourceInfo
@@ -770,6 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         await new Promise(resolve => setTimeout(resolve, 1000));
         updateProgressStep('analysis', 'completed');
+        updateProgressStep('scoring', 'completed');
         
         // Affichage résultats
         displayLifeWaterResults(scoreResult, selectedAddress, hubeauResult.parametersData);
@@ -803,26 +827,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% schema %}
 {
-  "name": "Water Analyzer",
+  "name": "Water Analyzer v5.0",
   "tag": "section",
   "class": "section",
   "settings": [
     {
       "type": "text",
       "id": "title",
-      "default": "Analyseur de Qualité de l'Eau",
+      "default": "Analyseur Scientifique de Qualité de l'Eau",
       "label": "Titre de la section"
     },
     {
       "type": "richtext",
       "id": "description",
       "label": "Description",
-      "default": "<p>Découvrez la qualité de votre eau potable grâce aux données officielles françaises.</p>"
+      "default": "<p>Découvrez la qualité de votre eau potable grâce à notre algorithme scientifique v5.0 basé sur les normes OMS et UE.</p>"
     }
   ],
   "presets": [
     {
-      "name": "Analyseur de Qualité de l'Eau"
+      "name": "Analyseur Scientifique de Qualité de l'Eau v5.0"
     }
   ]
 }
