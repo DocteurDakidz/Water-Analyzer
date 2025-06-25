@@ -3,7 +3,7 @@
 SECTION SHOPIFY 2.0 - ANALYSEUR EAU - RECHERCHE GÉOGRAPHIQUE ÉTENDUE
 =============================================================================
 Interface avec fallback automatique vers les communes voisines
-Version 4.4 - Fallback Géographique
+Version 4.4 - Fallback Géographique - CORRECTIFS
 =============================================================================
 {% endcomment %}
 
@@ -117,7 +117,7 @@ Version 4.4 - Fallback Géographique
 </div>
 
 <style>
-  /* Styles identiques à la version précédente */
+  /* ===== STYLES PRINCIPAUX ===== */
   .water-analyzer-section {
     padding: 5rem 0;
   }
@@ -138,8 +138,22 @@ Version 4.4 - Fallback Géographique
     opacity: 0.8;
   }
   
+  /* ===== CONTAINER PRINCIPAL ===== */
   .analysis-tool-container {
     background: rgb(var(--color-background));
+    border: 0.1rem solid rgba(var(--color-foreground), 0.1);
+    border-radius: 1rem;
+    padding: 3rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 0.4rem 1.2rem rgba(var(--color-shadow), 0.1);
+  }
+
+  .analysis-tool-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(var(--color-button), 0.1), rgba(var(--color-button), 0.05));
+    border-radius: 1rem;
     border: 0.1rem solid rgba(var(--color-button), 0.2);
   }
 
@@ -149,6 +163,7 @@ Version 4.4 - Fallback Géographique
     font-size: 2.4rem;
   }
 
+  /* ===== FORMULAIRE ADRESSE ===== */
   .address-input-wrapper {
     position: relative;
   }
@@ -203,6 +218,7 @@ Version 4.4 - Fallback Géographique
     display: block;
   }
 
+  /* ===== FORMULAIRE ===== */
   .form__fieldset {
     border: none;
     padding: 0;
@@ -235,6 +251,7 @@ Version 4.4 - Fallback Géographique
     line-height: 1.4;
   }
 
+  /* ===== LOADING ===== */
   .analysis-loading {
     text-align: center;
     padding: 3rem;
@@ -300,7 +317,7 @@ Version 4.4 - Fallback Géographique
     margin-top: 0.5rem;
   }
 
-  /* Styles Life Water (identiques) */
+  /* ===== STYLES LIFE WATER ===== */
   .life-water-report {
     border-radius: 15px;
     overflow: hidden;
@@ -454,6 +471,7 @@ Version 4.4 - Fallback Géographique
     font-weight: 600;
   }
 
+  /* ===== RESPONSIVE ===== */
   @media screen and (max-width: 749px) {
     .water-analyzer-section {
       padding: 3rem 0;
@@ -808,17 +826,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   ]
 }
-{% endschema %}-foreground), 0.1);
-    border-radius: 1rem;
-    padding: 3rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 0.4rem 1.2rem rgba(var(--color-shadow), 0.1);
-  }
-
-  .analysis-tool-header {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding: 2rem;
-    background: linear-gradient(135deg, rgba(var(--color-button), 0.1), rgba(var(--color-button), 0.05));
-    border-radius: 1rem;
-    border: 0.1rem solid rgba(var(--color
+{% endschema %}
