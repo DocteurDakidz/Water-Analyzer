@@ -1,9 +1,9 @@
 /**
  * =============================================================================
- * SCORING EAU - ALGORITHME SCIENTIFIQUE
+ * SCORING EAU - ALGORITHME SCIENTIFIQUE ÉQUITABLE
  * =============================================================================
- * Calcul scientifique avec bénéfice du doute et fiabilité transparente
- * Version 5.0 - Algorithme Scientifique Life Water
+ * Calcul scientifique avec tous les paramètres importants
+ * Version 5.3 - Scoring équitable avec affichage amélioré
  * =============================================================================
  */
 
@@ -56,11 +56,8 @@ function cleanNumericValue(inputValue) {
 
 // ===== FONCTIONS GÉOGRAPHIQUES (héritées v4.4) =====
 
-/**
- * Recherche étendue de données dans les communes voisines
- */
 async function fetchHubeauDataWithFallback(codeCommune, lat, lon, rayonKm = 20) {
-  console.log('=== RECHERCHE HUBEAU AVEC FALLBACK GÉOGRAPHIQUE v5.0 ===');
+  console.log('=== RECHERCHE HUBEAU AVEC FALLBACK GÉOGRAPHIQUE v5.3 ===');
   console.log(`Commune principale: ${codeCommune}, Coordonnées: ${lat}, ${lon}`);
   
   // 1. Tentative sur la commune principale
@@ -238,7 +235,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 // ===== FONCTION DE DEBUG =====
 
 function debugHubeauData(parametersData) {
-  console.log('=== DEBUG DONNÉES HUBEAU ===');
+  console.log('=== DEBUG DONNÉES HUBEAU v5.3 ===');
   console.log('Nombre total de paramètres:', Object.keys(parametersData).length);
   
   // Afficher tous les codes reçus
@@ -254,11 +251,8 @@ function debugHubeauData(parametersData) {
     });
   });
   
-  // Vérifier le mapping avec nos barèmes
-  console.log('=== MAPPING AVEC NOS BARÈMES ===');
-  
-  // Paramètres trouvés dans PARAMETRES_SEUIL_MAX
-  console.log('Dans PARAMETRES_SEUIL_MAX:');
+  // Vérifier le mapping avec PARAMETRES_SEUIL_MAX
+  console.log('=== MAPPING AVEC PARAMETRES_SEUIL_MAX ===');
   Object.keys(PARAMETRES_SEUIL_MAX).forEach(code => {
     if (parametersData[code]) {
       console.log(`✅ ${code} (${PARAMETRES_SEUIL_MAX[code].nom}) - TROUVÉ`);
@@ -267,8 +261,8 @@ function debugHubeauData(parametersData) {
     }
   });
   
-  // Paramètres trouvés dans PARAMETRES_OPTIMAL_CENTRAL
-  console.log('Dans PARAMETRES_OPTIMAL_CENTRAL:');
+  // Vérifier le mapping avec PARAMETRES_OPTIMAL_CENTRAL
+  console.log('=== MAPPING AVEC PARAMETRES_OPTIMAL_CENTRAL ===');
   Object.keys(PARAMETRES_OPTIMAL_CENTRAL).forEach(code => {
     if (parametersData[code]) {
       console.log(`✅ ${code} (${PARAMETRES_OPTIMAL_CENTRAL[code].nom}) - TROUVÉ`);
@@ -288,11 +282,142 @@ function debugHubeauData(parametersData) {
   return parametersData;
 }
 
-// ===== NOUVELLES FONCTIONS SCIENTIFIQUES v5.0 =====
+// ===== NOUVELLES FONCTIONS AFFICHAGE v5.3 =====
+
+/**
+ * Formate l'affichage d'une valeur avec son unité
+ */
+function formaterValeurParametre(valeur, unite, nom) {
+  // Cas spéciaux pour les paramètres microbiologiques
+  const parametresMicrobiologiques = [
+    'E. coli', 'E. coli (MF)', 'Entérocoques', 'Entérocoques (MS)',
+    'Bactéries coliformes', 'Bactéries sulfito-réductrices', 'Bactéries aérobies 22°C'
+  ];
+  
+  // Si c'est un paramètre microbiologique et valeur = 0
+  if (parametresMicrobiologiques.some(p => nom.includes(p)) && valeur === 0) {
+    return {
+      valeur: 'Non détecté',
+      unite: '',
+      interpretation: 'Aucune contamination détectée'
+    };
+  }
+  
+  // Gestion des unités manquantes
+  let uniteAffichee = unite;
+  if (!unite || unite === 'undefined' || unite === 'null') {
+    // Deviner l'unité selon le paramètre
+    if (nom.includes('pH')) {
+      uniteAffichee = 'unités pH';
+    } else if (nom.includes('Conductivité')) {
+      uniteAffichee = 'µS/cm';
+    } else if (nom.includes('Température')) {
+      uniteAffichee = '°C';
+    } else if (parametresMicrobiologiques.some(p => nom.includes(p))) {
+      uniteAffichee = 'bactéries/100mL';
+    } else {
+      uniteAffichee = '';
+    }
+  }
+  
+  // Formatage de la valeur
+  let valeurAffichee = valeur;
+  if (typeof valeur === 'number') {
+    if (valeur === 0 && parametresMicrobiologiques.some(p => nom.includes(p))) {
+      valeurAffichee = 'Non détecté';
+      uniteAffichee = '';
+    } else if (valeur < 0.01 && valeur > 0) {
+      valeurAffichee = '< 0.01';
+    } else if (valeur >= 1000) {
+      valeurAffichee = (valeur / 1000).toFixed(1) + 'k';
+    } else if (valeur >= 1) {
+      valeurAffichee = valeur.toFixed(2);
+    } else {
+      valeurAffichee = valeur.toFixed(3);
+    }
+  }
+  
+  return {
+    valeur: valeurAffichee,
+    unite: uniteAffichee,
+    interpretation: getInterpretation(valeur, nom)
+  };
+}
+
+/**
+ * Donne une interprétation simple de la valeur
+ */
+function getInterpretation(valeur, nom) {
+  const parametresMicrobiologiques = [
+    'E. coli', 'E. coli (MF)', 'Entérocoques', 'Entérocoques (MS)',
+    'Bactéries coliformes', 'Bactéries sulfito-réductrices'
+  ];
+  
+  if (parametresMicrobiologiques.some(p => nom.includes(p))) {
+    if (valeur === 0) {
+      return 'Aucune contamination - Excellent';
+    } else if (valeur <= 1) {
+      return 'Contamination très faible';
+    } else if (valeur <= 10) {
+      return 'Contamination modérée - Surveillance recommandée';
+    } else {
+      return 'Contamination importante - Action requise';
+    }
+  }
+  
+  if (nom.includes('pH')) {
+    if (valeur >= 6.5 && valeur <= 8.5) {
+      return 'pH optimal pour la consommation';
+    } else if (valeur < 6.5) {
+      return 'Eau légèrement acide';
+    } else {
+      return 'Eau légèrement basique';
+    }
+  }
+  
+  if (nom.includes('Nitrates')) {
+    if (valeur <= 25) {
+      return 'Niveau acceptable';
+    } else if (valeur <= 40) {
+      return 'Niveau élevé - surveillance';
+    } else {
+      return 'Niveau préoccupant';
+    }
+  }
+  
+  return 'Valeur dans les normes';
+}
+
+/**
+ * Génère un badge de qualité coloré
+ */
+function genererBadgeQualite(score) {
+  let couleur, texte, emoji;
+  
+  if (score >= 90) {
+    couleur = '#28a745'; texte = 'Excellent'; emoji = '🟢';
+  } else if (score >= 75) {
+    couleur = '#28a745'; texte = 'Très bon'; emoji = '🟢';
+  } else if (score >= 60) {
+    couleur = '#ffc107'; texte = 'Bon'; emoji = '🟡';
+  } else if (score >= 40) {
+    couleur = '#fd7e14'; texte = 'Moyen'; emoji = '🟠';
+  } else {
+    couleur = '#dc3545'; texte = 'Faible'; emoji = '🔴';
+  }
+  
+  return {
+    couleur,
+    texte,
+    emoji,
+    html: `<span style="background: ${couleur}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">${emoji} ${texte}</span>`
+  };
+}
+
+// ===== NOUVELLES FONCTIONS SCIENTIFIQUES v5.3 =====
 
 /**
  * Calcule le score d'un paramètre avec seuil maximal
- * Formule: Score = max(0, 100 - 100 * ((valeur - valeur_ideale) / (valeur_max - valeur_ideale))^α)
  */
 function calculerScoreSeuilMax(valeur, config) {
   if (valeur <= config.valeur_ideale) {
@@ -311,7 +436,6 @@ function calculerScoreSeuilMax(valeur, config) {
 
 /**
  * Calcule le score d'un paramètre avec valeur optimale centrale
- * Formule: Score = max(0, 100 - β * |valeur - valeur_ideale|^γ)
  */
 function calculerScoreOptimalCentral(valeur, config) {
   const ecart = Math.abs(valeur - config.valeur_ideale);
@@ -321,92 +445,111 @@ function calculerScoreOptimalCentral(valeur, config) {
 }
 
 /**
- * Identifie les catégories testées dans les données Hubeau
+ * Calcule le score d'un paramètre individuel
  */
-function identifierCategoriesTestees(parametersData) {
-  const categoriesTestees = new Set();
+function calculerScoreParametre(parametre, parametersData) {
+  // Chercher la valeur dans les données Hubeau
+  const valeurParam = getParameterValue(parametersData, parametre.codes);
   
-  // Vérifier chaque paramètre dans les données
-  Object.keys(parametersData).forEach(codeHubeau => {
-    // Chercher dans les paramètres à seuil max
-    Object.entries(PARAMETRES_SEUIL_MAX).forEach(([code, config]) => {
-      if (code === codeHubeau || (MAPPING_CODES_HUBEAU[code] && 
-          MAPPING_CODES_HUBEAU[code] === MAPPING_CODES_HUBEAU[codeHubeau])) {
-        categoriesTestees.add(config.categorie);
-      }
-    });
-    
-    // Chercher dans les paramètres optimal central
-    Object.entries(PARAMETRES_OPTIMAL_CENTRAL).forEach(([code, config]) => {
-      if (code === codeHubeau || (MAPPING_CODES_HUBEAU[code] && 
-          MAPPING_CODES_HUBEAU[code] === MAPPING_CODES_HUBEAU[codeHubeau])) {
-        categoriesTestees.add(config.categorie);
-      }
-    });
-  });
-  
-  return Array.from(categoriesTestees);
-}
-
-/**
- * Calcule le score d'une catégorie
- */
-function calculerScoreCategorie(categorie, parametersData) {
-  const parametresCategorie = getParametresParCategorie(categorie);
-  let scores = [];
-  let details = [];
-  
-  parametresCategorie.forEach(param => {
-    const codes = [param.code];
-    if (MAPPING_CODES_HUBEAU[param.code]) {
-      codes.push(MAPPING_CODES_HUBEAU[param.code]);
-    }
-    
-    const valeurParam = getParameterValue(parametersData, codes);
-    
-    if (valeurParam !== null) {
-      let score;
-      
-      if (PARAMETRES_SEUIL_MAX[param.code]) {
-        score = calculerScoreSeuilMax(valeurParam.value, PARAMETRES_SEUIL_MAX[param.code]);
-      } else if (PARAMETRES_OPTIMAL_CENTRAL[param.code]) {
-        score = calculerScoreOptimalCentral(valeurParam.value, PARAMETRES_OPTIMAL_CENTRAL[param.code]);
-      }
-      
-      scores.push(score);
-      details.push({
-        nom: param.nom,
-        valeur: valeurParam.value,
-        unite: valeurParam.unit,
-        score: score,
-        date: valeurParam.date
-      });
-    }
-  });
-  
-  if (scores.length === 0) {
+  if (valeurParam === null) {
+    // Paramètre non testé = bénéfice du doute 50%
     return {
-      score: null,
+      score: 50,
       teste: false,
-      details: []
+      valeur: null,
+      unite: null,
+      date: null,
+      source: 'bénéfice du doute'
     };
   }
   
-  // Moyenne des scores des paramètres de la catégorie
-  const scoreMoyen = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  // Paramètre testé = calcul selon le type
+  let score = 50; // Valeur par défaut
+  
+  if (parametre.type === 'seuil_max') {
+    score = calculerScoreSeuilMax(valeurParam.value, parametre.config);
+  } else if (parametre.type === 'optimal_central') {
+    score = calculerScoreOptimalCentral(valeurParam.value, parametre.config);
+  } else if (parametre.type === 'qualitatif') {
+    // Pour les paramètres qualitatifs (couleur, odeur, etc.)
+    score = 80; // Score par défaut pour "acceptable"
+  }
   
   return {
-    score: scoreMoyen,
+    score: Math.round(score),
     teste: true,
-    details: details
+    valeur: valeurParam.value,
+    unite: valeurParam.unit,
+    date: valeurParam.date,
+    source: 'testé'
   };
 }
 
 /**
- * ALGORITHME PRINCIPAL v5.0 - Calcul scientifique avec bénéfice du doute
+ * Calcule le score d'une catégorie COMPLÈTE (tous les paramètres)
+ */
+function calculerScoreCategorieComplete(categorie, parametersData) {
+  console.log(`=== CALCUL COMPLET CATÉGORIE: ${categorie} ===`);
+  
+  const parametres = getParametresParCategorie(categorie);
+  
+  if (parametres.length === 0) {
+    return {
+      score: 50,
+      teste: false,
+      details: [],
+      parametres_testes: 0,
+      parametres_totaux: 0
+    };
+  }
+  
+  let scores = [];
+  let details = [];
+  let parametres_testes = 0;
+  
+  parametres.forEach(parametre => {
+    const resultat = calculerScoreParametre(parametre, parametersData);
+    
+    scores.push(resultat.score);
+    details.push({
+      nom: parametre.nom,
+      score: resultat.score,
+      teste: resultat.teste,
+      valeur: resultat.valeur,
+      unite: resultat.unite,
+      date: resultat.date,
+      impact: parametre.impact,
+      gravite: parametre.gravite,
+      norme: parametre.norme,
+      source: resultat.source
+    });
+    
+    if (resultat.teste) {
+      parametres_testes++;
+    }
+    
+    console.log(`${parametre.nom}: ${resultat.score}/100 (${resultat.source})`);
+  });
+  
+  // Moyenne de TOUS les paramètres (testés + non testés à 50%)
+  const scoreMoyen = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  
+  console.log(`Score final ${categorie}: ${scoreMoyen.toFixed(1)}/100 (${parametres_testes}/${parametres.length} testés)`);
+  
+  return {
+    score: scoreMoyen,
+    teste: parametres_testes > 0,
+    details: details,
+    parametres_testes: parametres_testes,
+    parametres_totaux: parametres.length
+  };
+}
+
+/**
+ * ALGORITHME PRINCIPAL v5.3 - Calcul équitable avec TOUS les paramètres
  */
 function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null) {
-  console.log('=== CALCUL SCORING SCIENTIFIQUE v5.0 ===');
+  console.log('=== CALCUL SCORING SCIENTIFIQUE ÉQUITABLE v5.3 ===');
   console.log('Paramètres reçus:', Object.keys(parametersData));
   
   // DEBUG: Ajouter le debug des données
@@ -440,79 +583,81 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
         parametresManquants: Object.keys(PONDERATIONS_CATEGORIES)
       },
       contributions: {},
+      detailsParCategorie: {},
       sourceInfo: sourceInfo,
       metadata: {
         dateCalcul: new Date().toISOString(),
-        version: '5.0 - Algorithme Scientifique',
+        version: '5.3 - Scoring équitable avec affichage amélioré',
         analyseApprofondie: options.analyseApprofondie || false,
         nombreParametres: 0
       }
     };
   }
   
-  // ===== IDENTIFICATION DES CATÉGORIES TESTÉES =====
-  const categoriesTestees = identifierCategoriesTestees(parametersData);
-  const toutesCategories = Object.keys(PONDERATIONS_CATEGORIES);
-  
-  console.log(`Catégories testées: ${categoriesTestees.join(', ')}`);
-  console.log(`Total catégories: ${toutesCategories.length}`);
-  
-  // ===== CALCUL DES SCORES PAR CATÉGORIE =====
+  // ===== CALCUL DES SCORES PAR CATÉGORIE (COMPLET) =====
   let contributions = {};
+  let detailsParCategorie = {};
   let scoreFinalPondere = 0;
   let alertes = [];
   let recommandations = [];
+  let parametres_testes_total = 0;
+  let parametres_totaux_total = 0;
   
-  // Pour chaque catégorie possible
-  toutesCategories.forEach(categorie => {
+  // Pour chaque catégorie
+  Object.keys(PONDERATIONS_CATEGORIES).forEach(categorie => {
     const poids = PONDERATIONS_CATEGORIES[categorie];
-    const resultCategorie = calculerScoreCategorie(categorie, parametersData);
+    const resultCategorie = calculerScoreCategorieComplete(categorie, parametersData);
     
-    if (resultCategorie.teste) {
-      // Catégorie testée - utiliser le score calculé
-      const contribution = (poids * resultCategorie.score) / 100;
-      scoreFinalPondere += contribution;
-      
-      contributions[categorie] = {
-        points: contribution * 100, // Reconvertir en points sur 100
-        source: "testé",
-        score: resultCategorie.score,
-        details: resultCategorie.details
-      };
-      
-      // Générer alertes selon le score
-      if (resultCategorie.score >= 80) {
-        alertes.push(`✅ ${getNomCategorie(categorie)}: Excellent (${resultCategorie.score.toFixed(0)}/100)`);
-      } else if (resultCategorie.score >= 60) {
-        alertes.push(`🟡 ${getNomCategorie(categorie)}: Bon (${resultCategorie.score.toFixed(0)}/100)`);
-      } else {
-        alertes.push(`🟠 ${getNomCategorie(categorie)}: Améliorable (${resultCategorie.score.toFixed(0)}/100)`);
-      }
-      
+    // Contribution au score final
+    const contribution = (poids * resultCategorie.score) / 100;
+    scoreFinalPondere += contribution;
+    
+    contributions[categorie] = {
+      points: contribution * 100, // Reconvertir en points sur 100
+      score: resultCategorie.score,
+      teste: resultCategorie.teste,
+      parametres_testes: resultCategorie.parametres_testes,
+      parametres_totaux: resultCategorie.parametres_totaux
+    };
+    
+    detailsParCategorie[categorie] = {
+      nom: CATEGORIES_COMPLETES[categorie] ? CATEGORIES_COMPLETES[categorie].nom : getNomCategorie(categorie),
+      description: CATEGORIES_COMPLETES[categorie] ? CATEGORIES_COMPLETES[categorie].description : 'Description non disponible',
+      score: resultCategorie.score,
+      ponderation: poids * 100,
+      details: resultCategorie.details,
+      parametres_testes: resultCategorie.parametres_testes,
+      parametres_totaux: resultCategorie.parametres_totaux
+    };
+    
+    // Compteurs globaux pour fiabilité
+    parametres_testes_total += resultCategorie.parametres_testes;
+    parametres_totaux_total += resultCategorie.parametres_totaux;
+    
+    // Générer alertes selon le score
+    const nom = getNomCategorie(categorie);
+    if (resultCategorie.score >= 80) {
+      alertes.push(`✅ ${nom}: Excellent (${resultCategorie.score.toFixed(0)}/100) - ${resultCategorie.parametres_testes}/${resultCategorie.parametres_totaux} testés`);
+    } else if (resultCategorie.score >= 60) {
+      alertes.push(`🟡 ${nom}: Bon (${resultCategorie.score.toFixed(0)}/100) - ${resultCategorie.parametres_testes}/${resultCategorie.parametres_totaux} testés`);
     } else {
-      // Catégorie non testée - bénéfice du doute à 50%
-      const contribution = (poids * 50) / 100;
-      scoreFinalPondere += contribution;
-      
-      contributions[categorie] = {
-        points: contribution * 100,
-        source: "bénéfice du doute",
-        score: 50,
-        details: []
-      };
-      
-      alertes.push(`⚪ ${getNomCategorie(categorie)}: Non testé (50/100 par défaut)`);
+      alertes.push(`🟠 ${nom}: Améliorable (${resultCategorie.score.toFixed(0)}/100) - ${resultCategorie.parametres_testes}/${resultCategorie.parametres_totaux} testés`);
     }
   });
   
-  // ===== CALCUL DE LA FIABILITÉ =====
-  const fiabilite = (categoriesTestees.length / toutesCategories.length) * 100;
+  // ===== CALCUL DE LA FIABILITÉ PONDÉRÉE =====
+  const fiabiliteSimple = (parametres_testes_total / parametres_totaux_total) * 100;
+  const fiabilitePonderee = calculerFiabilitePonderee(
+    Object.keys(parametersData), 
+    Object.keys(parametersData)
+  );
+  const fiabilite = Math.round(fiabilitePonderee);
   const infoFiabilite = getNiveauFiabilite(fiabilite);
   
   // ===== SCORE FINAL =====
   const scoreFinal = Math.round(scoreFinalPondere * 100);
   
-  console.log(`Score final: ${scoreFinal}, Fiabilité: ${fiabilite.toFixed(0)}%`);
+  console.log(`Score final: ${scoreFinal}, Fiabilité: ${fiabilite}% (${parametres_testes_total}/${parametres_totaux_total} paramètres)`);
   
   // ===== DÉTERMINATION DU NIVEAU =====
   let niveau, emoji, couleur, message;
@@ -551,8 +696,8 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
       recommandations.push('🌟 Installer un système de filtration adapté pourrait améliorer la qualité');
     }
   } else {
-    recommandations.push(`⚠️ Analyse basée à seulement ${fiabilite.toFixed(0)}% sur des données réelles`);
-    recommandations.push('🔬 Des analyses complémentaires amélioreront la précision du score');
+    recommandations.push(`⚠️ Analyse basée à seulement ${fiabilite}% sur des données complètes`);
+    recommandations.push('🔬 Des analyses complémentaires amélioreront significativement la précision du score');
   }
   
   if (scoreFinal < 60) {
@@ -565,18 +710,21 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
   }
   
   // ===== ANALYSE COMPLÈTE LIFE WATER =====
-  const categoriesManquantes = toutesCategories.filter(cat => !categoriesTestees.includes(cat));
+  const categoriesIncompletes = Object.keys(PONDERATIONS_CATEGORIES).filter(cat => 
+    contributions[cat].parametres_testes < contributions[cat].parametres_totaux
+  );
+  
   const analyseComplete = {
     disponible: true,
     message: `Pour un score ${fiabilite < 80 ? '100% fiable' : 'encore plus précis'}, Life Water peut effectuer des tests complémentaires de votre eau du robinet`,
-    parametresManquants: categoriesManquantes,
-    messageConfiance: `Ce score est basé à ${fiabilite.toFixed(0)}% sur des analyses réelles. ${(100 - fiabilite).toFixed(0)}% attribués par bénéfice du doute (niveau moyen supposé).`
+    parametresManquants: categoriesIncompletes,
+    messageConfiance: `Ce score est basé sur ${parametres_testes_total}/${parametres_totaux_total} paramètres testés (${fiabilite}% de fiabilité). ${parametres_totaux_total - parametres_testes_total} paramètres reçoivent le bénéfice du doute à 50/100.`
   };
   
   return {
     score: scoreFinal,
     scorePrecis: scoreFinalPondere * 100,
-    fiabilite: Math.round(fiabilite),
+    fiabilite: fiabilite,
     niveauFiabilite: infoFiabilite.niveau,
     niveau: niveau,
     emoji: emoji,
@@ -585,15 +733,18 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
     alertes: alertes,
     recommandations: [...new Set(recommandations)],
     contributions: contributions,
+    detailsParCategorie: detailsParCategorie,
     analyseComplete: analyseComplete,
     sourceInfo: sourceInfo,
     metadata: {
       dateCalcul: new Date().toISOString(),
-      version: '5.0 - Algorithme Scientifique',
+      version: '5.3 - Scoring équitable avec affichage amélioré',
       analyseApprofondie: options.analyseApprofondie || false,
       nombreParametres: nombreParametres,
-      categoriesTestees: categoriesTestees.length,
-      categoriesTotales: toutesCategories.length
+      parametres_testes_total: parametres_testes_total,
+      parametres_totaux_total: parametres_totaux_total,
+      fiabiliteSimple: Math.round(fiabiliteSimple),
+      fiabilitePonderee: fiabilite
     }
   };
 }
@@ -602,6 +753,11 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
  * Obtient le nom lisible d'une catégorie
  */
 function getNomCategorie(categorie) {
+  if (CATEGORIES_COMPLETES[categorie]) {
+    return CATEGORIES_COMPLETES[categorie].nom;
+  }
+  
+  // Fallback pour compatibilité
   const noms = {
     microbiologique: '🦠 Microbiologie',
     metauxLourds: '🔗 Métaux lourds', 
@@ -609,7 +765,7 @@ function getNomCategorie(categorie) {
     nitrates: '⚗️ Nitrates',
     pesticides: '🌿 Pesticides',
     organoleptiques: '🌡️ Organoleptiques',
-    chimie_generale: '⚖️ Chimie générale', // NOUVEAU
+    chimie_generale: '⚖️ Chimie générale',
     medicaments: '🧬 Médicaments',
     microplastiques: '🔬 Microplastiques',
     chlore: '💧 Chlore'
@@ -617,7 +773,25 @@ function getNomCategorie(categorie) {
   return noms[categorie] || categorie;
 }
 
-// ===== GÉNÉRATION HTML MISE À JOUR v5.0 =====
+// ===== FONCTION TOGGLE POUR ACCORDÉON =====
+
+/**
+ * Fonction toggle pour les catégories (accessible globalement)
+ */
+function toggleCategory(categoryId) {
+  const details = document.getElementById('details-' + categoryId);
+  const header = details.previousElementSibling;
+  
+  if (details.style.display === 'none' || details.style.display === '') {
+    details.style.display = 'block';
+    header.classList.add('expanded');
+  } else {
+    details.style.display = 'none';
+    header.classList.remove('expanded');
+  }
+}
+
+// ===== GÉNÉRATION HTML MISE À JOUR v5.3 =====
 
 function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
   // ===== CAS SPÉCIAUX =====
@@ -666,26 +840,96 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
     `;
   }
 
-  // ===== AFFICHAGE NORMAL v5.0 =====
+  // ===== AFFICHAGE NORMAL v5.3 =====
   
   // Barres de contribution par catégorie
   let contributionsHTML = '';
   Object.entries(scoreResult.contributions).forEach(([categorie, contrib]) => {
-    const couleurBarre = contrib.source === 'testé' ? 
-      (contrib.score >= 75 ? '#28a745' : contrib.score >= 50 ? '#ffc107' : '#dc3545') : 
-      '#6c757d';
+    const couleurBarre = contrib.score >= 75 ? '#28a745' : contrib.score >= 50 ? '#ffc107' : '#dc3545';
+    const details = scoreResult.detailsParCategorie[categorie];
     
     contributionsHTML += `
       <div class="contribution-item">
         <div class="contribution-header">
-          <span class="contribution-name">${getNomCategorie(categorie)}</span>
-          <span class="contribution-source ${contrib.source === 'testé' ? 'tested' : 'estimated'}">${contrib.source}</span>
+          <span class="contribution-name">${details.nom}</span>
+          <span class="contribution-coverage">${contrib.parametres_testes}/${contrib.parametres_totaux} testés</span>
           <span class="contribution-points">${contrib.points.toFixed(1)} pts</span>
         </div>
         <div class="contribution-bar">
           <div class="contribution-fill" style="width: ${contrib.score}%; background-color: ${couleurBarre};"></div>
         </div>
-        <div class="contribution-score">${contrib.score}/100</div>
+        <div class="contribution-score">${contrib.score.toFixed(0)}/100</div>
+      </div>
+    `;
+  });
+
+  // Détails par catégorie (accordéon) avec affichage amélioré
+  let detailsHTML = '';
+  Object.entries(scoreResult.detailsParCategorie).forEach(([categorie, details]) => {
+    const parametresTestes = details.details.filter(p => p.teste);
+    const parametresNonTestes = details.details.filter(p => !p.teste);
+    
+    detailsHTML += `
+      <div class="category-accordion">
+        <div class="category-header" onclick="toggleCategory('${categorie}')">
+          <span class="category-title">${details.nom} (${details.score.toFixed(0)}/100)</span>
+          <span class="category-coverage">${details.parametres_testes}/${details.parametres_totaux} paramètres</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="category-details" id="details-${categorie}" style="display: none;">
+          <p class="category-description">${details.description}</p>
+          
+          ${parametresTestes.length > 0 ? `
+          <div class="parameters-section">
+            <h5>✅ Paramètres testés :</h5>
+            ${parametresTestes.map(param => {
+              const format = formaterValeurParametre(param.valeur, param.unite, param.nom);
+              const badge = genererBadgeQualite(param.score);
+              
+              return `
+                <div class="parameter-item tested improved">
+                  <div class="parameter-header">
+                    <div class="parameter-title">
+                      <strong>${param.nom}</strong>
+                      ${badge.html}
+                    </div>
+                    <span class="parameter-score ${param.score >= 75 ? 'good' : param.score >= 50 ? 'medium' : 'bad'}">${param.score}/100</span>
+                  </div>
+                  <div class="parameter-details">
+                    <div class="parameter-value-section">
+                      <span class="parameter-value">${format.valeur} ${format.unite}</span>
+                      <span class="parameter-interpretation">${format.interpretation}</span>
+                    </div>
+                    <div class="parameter-meta">
+                      <span class="parameter-impact">💡 ${param.impact}</span>
+                      <span class="parameter-norm">📋 ${param.norme}</span>
+                      ${param.date ? `<span class="parameter-date">📅 Analysé le ${new Date(param.date).toLocaleDateString('fr-FR')}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          ` : ''}
+          
+          ${parametresNonTestes.length > 0 ? `
+          <div class="parameters-section">
+            <h5>⚪ Paramètres non testés (bénéfice du doute 50/100) :</h5>
+            ${parametresNonTestes.map(param => `
+              <div class="parameter-item untested">
+                <div class="parameter-header">
+                  <strong>${param.nom}</strong>
+                  <span class="parameter-score neutral">50/100</span>
+                </div>
+                <div class="parameter-details">
+                  <span class="parameter-impact">⚠️ Impact: ${param.impact}</span>
+                  <span class="parameter-norm">Norme: ${param.norme}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
       </div>
     `;
   });
@@ -694,17 +938,17 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
     <div class="life-water-report">
       <!-- En-tête Life Water -->
       <div class="life-water-header">
-        <h2>🔬 <strong>Analyse scientifique de la qualité de votre eau</strong></h2>
+        <h2>🔬 <strong>Analyse scientifique équitable de la qualité de votre eau</strong></h2>
         <p>Cette analyse vous est offerte par <strong>Life Water</strong>.</p>
-        <p>Algorithme scientifique v5.0 basé sur les normes OMS et UE, avec calcul de fiabilité transparent.</p>
+        <p>Algorithme scientifique v5.3 avec scoring équitable - TOUS les paramètres importants pris en compte.</p>
         <p><strong>Life Water est un groupe privé de recherche appliquée</strong>, engagé dans l'étude et l'amélioration de la qualité de l'eau destinée à la consommation humaine.</p>
         <hr>
-        <p>💡 <strong>Analyse basée sur les dernières données disponibles avec bénéfice du doute scientifique.</strong></p>
+        <p>💡 <strong>Nouveauté v5.3 :</strong> Affichage amélioré avec interprétations claires et badges de qualité.</p>
       </div>
 
       <!-- Résultat Principal -->
       <div class="resultat-principal">
-        <h3>📊 <strong>Résultat de votre analyse</strong></h3>
+        <h3>📊 <strong>Résultat de votre analyse équitable</strong></h3>
         <p><strong>Adresse analysée :</strong> ${adresse}</p>
         
         ${scoreResult.sourceInfo && scoreResult.sourceInfo.type === 'commune_voisine' ? `
@@ -722,12 +966,13 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
           <div class="score-info">
             <h4 style="color: ${scoreResult.couleur};">${scoreResult.emoji} ${scoreResult.niveau}</h4>
             <p class="score-message">${scoreResult.message}</p>
+            <p class="score-details">${scoreResult.metadata.parametres_testes_total}/${scoreResult.metadata.parametres_totaux_total} paramètres testés</p>
           </div>
         </div>
 
         <!-- Barre de fiabilité -->
         <div class="fiabilite-section">
-          <h4>📊 <strong>Fiabilité de l'analyse</strong></h4>
+          <h4>📊 <strong>Fiabilité de l'analyse (pondérée par criticité)</strong></h4>
           <div class="fiabilite-bar">
             <div class="fiabilite-fill" style="width: ${scoreResult.fiabilite}%; background-color: ${scoreResult.fiabilite >= 80 ? '#28a745' : scoreResult.fiabilite >= 60 ? '#ffc107' : '#dc3545'};"></div>
           </div>
@@ -748,9 +993,18 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
           </div>
         </div>
 
+        <!-- Détails par catégorie (accordéon) -->
+        <div class="details-section">
+          <h4>🔍 <strong>Analyse détaillée par catégorie</strong></h4>
+          <p>Cliquez sur une catégorie pour voir le détail des paramètres testés et non testés :</p>
+          <div class="categories-accordion">
+            ${detailsHTML}
+          </div>
+        </div>
+
         <!-- Informations détectées -->
         <div class="points-attention">
-          <p><strong>📊 Informations détectées :</strong></p>
+          <p><strong>📊 Synthèse de l'analyse :</strong></p>
           <ul>
             ${scoreResult.alertes.map(alerte => `<li>${alerte}</li>`).join('')}
           </ul>
@@ -769,9 +1023,9 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
           <h4>🔬 <strong>Analyse complète Life Water</strong></h4>
           <p>${scoreResult.analyseComplete.message}</p>
           ${scoreResult.analyseComplete.parametresManquants.length > 0 ? `
-          <p><strong>Paramètres non analysés :</strong> ${scoreResult.analyseComplete.parametresManquants.map(p => getNomCategorie(p)).join(', ')}</p>
+          <p><strong>Catégories nécessitant des tests complémentaires :</strong> ${scoreResult.analyseComplete.parametresManquants.map(p => getNomCategorie(p)).join(', ')}</p>
           ` : ''}
-          <button onclick="alert('Contactez Life Water pour une analyse personnalisée')" style="background: #667eea; color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 1.1em;">
+          <button onclick="alert('Contactez Life Water pour une analyse 100% complète')" style="background: #667eea; color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 1.1em;">
             🧪 Demander une analyse 100% fiable
           </button>
         </div>
@@ -781,7 +1035,7 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
           <h4>📅 <strong>Informations sur cette analyse</strong></h4>
           
           <p><strong>📊 Méthodologie :</strong> Algorithme scientifique v${scoreResult.metadata.version}</p>
-          <p><strong>🎯 Catégories analysées :</strong> ${scoreResult.metadata.categoriesTestees}/${scoreResult.metadata.categoriesTotales}</p>
+          <p><strong>🎯 Paramètres analysés :</strong> ${scoreResult.metadata.parametres_testes_total}/${scoreResult.metadata.parametres_totaux_total}</p>
           <p><strong>📍 Source :</strong> ${scoreResult.sourceInfo ? scoreResult.sourceInfo.nomCommune : 'Données Hubeau'}</p>
           
           <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -789,7 +1043,7 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
           </div>
           
           <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>🧮 Principe du bénéfice du doute :</strong> Les catégories non testées reçoivent un score neutre de 50/100, représentant un niveau moyen supposé. Cette approche évite de pénaliser injustement l'absence de tests rares tout en encourageant les analyses complètes.</p>
+            <p style="margin: 0;"><strong>🧮 Scoring équitable v5.3 :</strong> TOUS les paramètres importants sont pris en compte. Les paramètres non testés reçoivent un score neutre de 50/100 (bénéfice du doute), garantissant une évaluation juste qui ne masque pas les analyses manquantes importantes.</p>
           </div>
           
           <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 20px 0;">
@@ -806,7 +1060,21 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
     </div>
 
     <style>
-      /* Styles spécifiques v5.0 */
+      /* Styles spécifiques v5.3 */
+      .score-details {
+        font-size: 0.9em;
+        opacity: 0.9;
+        margin: 5px 0 0 0;
+      }
+      
+      .contribution-coverage {
+        font-size: 0.8em;
+        color: #666;
+        background: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 10px;
+      }
+      
       .fiabilite-section {
         background: rgba(255,255,255,0.1);
         padding: 20px;
@@ -871,23 +1139,6 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
         flex: 1;
       }
       
-      .contribution-source {
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8em;
-        font-weight: 500;
-      }
-      
-      .contribution-source.tested {
-        background: #d4edda;
-        color: #155724;
-      }
-      
-      .contribution-source.estimated {
-        background: #e2e3e5;
-        color: #495057;
-      }
-      
       .contribution-points {
         font-weight: 600;
         color: #667eea;
@@ -911,6 +1162,206 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
         text-align: center;
         font-size: 0.9em;
         color: #666;
+      }
+      
+      /* Accordéon par catégorie */
+      .category-accordion {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin: 10px 0;
+        overflow: hidden;
+      }
+      
+      .category-header {
+        background: #f8f9fa;
+        padding: 15px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background-color 0.2s ease;
+      }
+      
+      .category-header:hover {
+        background: #e9ecef;
+      }
+      
+      .category-title {
+        font-weight: 600;
+        font-size: 1.1em;
+      }
+      
+      .category-coverage {
+        font-size: 0.9em;
+        color: #666;
+        background: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+      }
+      
+      .expand-icon {
+        transition: transform 0.2s ease;
+      }
+      
+      .category-header.expanded .expand-icon {
+        transform: rotate(180deg);
+      }
+      
+      .category-details {
+        padding: 20px;
+        background: white;
+        border-top: 1px solid #eee;
+      }
+      
+      .category-description {
+        font-style: italic;
+        color: #666;
+        margin-bottom: 15px;
+      }
+      
+      .parameters-section {
+        margin: 20px 0;
+      }
+      
+      .parameters-section h5 {
+        margin: 0 0 10px 0;
+        font-size: 1em;
+        color: #333;
+      }
+      
+      .parameter-item {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 12px;
+        margin: 8px 0;
+        border-left: 4px solid #ddd;
+      }
+      
+      .parameter-item.tested {
+        border-left-color: #28a745;
+      }
+      
+      .parameter-item.untested {
+        border-left-color: #6c757d;
+      }
+      
+      .parameter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      
+      .parameter-score {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.9em;
+        font-weight: 600;
+      }
+      
+      .parameter-score.good {
+        background: #d4edda;
+        color: #155724;
+      }
+      
+      .parameter-score.medium {
+        background: #fff3cd;
+        color: #856404;
+      }
+      
+      .parameter-score.bad {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      
+      .parameter-score.neutral {
+        background: #e2e3e5;
+        color: #495057;
+      }
+      
+      .parameter-details {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.9em;
+      }
+      
+      .parameter-value {
+        font-weight: 600;
+        color: #495057;
+      }
+      
+      .parameter-impact {
+        color: #666;
+      }
+      
+      .parameter-norm {
+        color: #007bff;
+        font-size: 0.8em;
+      }
+      
+      /* ===== STYLES AMÉLIORÉS v5.3 ===== */
+      .parameter-item.improved {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 16px;
+        margin: 12px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: all 0.2s ease;
+      }
+
+      .parameter-item.improved:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+      }
+
+      .parameter-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+      }
+
+      .parameter-value-section {
+        background: #f1f3f4;
+        padding: 10px;
+        border-radius: 6px;
+        margin: 8px 0;
+      }
+
+      .parameter-value {
+        font-weight: 700;
+        color: #2c3e50;
+        font-size: 1.1em;
+        display: block;
+      }
+
+      .parameter-interpretation {
+        color: #7f8c8d;
+        font-size: 0.9em;
+        font-style: italic;
+        display: block;
+        margin-top: 4px;
+      }
+
+      .parameter-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85em;
+      }
+
+      .parameter-impact {
+        color: #e74c3c;
+      }
+
+      .parameter-norm {
+        color: #3498db;
+      }
+
+      .parameter-date {
+        color: #95a5a6;
       }
       
       .complete-analysis-cta {
@@ -937,21 +1388,54 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
         transform: translateY(-2px);
         transition: all 0.3s ease;
       }
+      
+      /* Responsive */
+      @media screen and (max-width: 749px) {
+        .category-header {
+          flex-direction: column;
+          gap: 8px;
+          align-items: flex-start;
+        }
+        
+        .parameter-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+        }
+        
+        .parameter-details {
+          font-size: 0.8em;
+        }
+        
+        .parameter-title {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+        }
+        
+        .parameter-meta {
+          font-size: 0.8em;
+        }
+      }
     </style>
   `;
 }
 
 // ===== EXPORT GLOBAL =====
 if (typeof window !== 'undefined') {
+  window.formaterValeurParametre = formaterValeurParametre;
+  window.getInterpretation = getInterpretation;
+  window.genererBadgeQualite = genererBadgeQualite;
   window.calculateLifeWaterScore = calculateLifeWaterScore;
   window.generateLifeWaterHTML = generateLifeWaterHTML;
   window.fetchHubeauDataWithFallback = fetchHubeauDataWithFallback;
   window.calculerScoreSeuilMax = calculerScoreSeuilMax;
   window.calculerScoreOptimalCentral = calculerScoreOptimalCentral;
-  window.identifierCategoriesTestees = identifierCategoriesTestees;
-  window.calculerScoreCategorie = calculerScoreCategorie;
+  window.calculerScoreParametre = calculerScoreParametre;
+  window.calculerScoreCategorieComplete = calculerScoreCategorieComplete;
   window.getNomCategorie = getNomCategorie;
   window.debugHubeauData = debugHubeauData;
+  window.toggleCategory = toggleCategory;
 }
 
-console.log('✅ Scoring Eau v5.1 - Algorithme Scientifique enrichi avec normes officielles chargé');
+console.log('✅ Scoring Eau v5.3 - Algorithme Scientifique Équitable avec affichage amélioré chargé');
