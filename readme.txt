@@ -1,49 +1,53 @@
-# 🔬 Analyseur de Qualité de l'Eau - Life Water
+# 🔬 Analyseur de Qualité de l'Eau - Life Water v5.3
 
-Un outil d'analyse de la qualité de l'eau potable utilisant les données officielles françaises (Hubeau) avec recherche géographique étendue et fallback automatique.
+Un outil d'analyse scientifique avancé de la qualité de l'eau potable utilisant les données officielles françaises (Hubeau) avec algorithme équitable et affichage amélioré.
 
-## 🌟 Fonctionnalités principales
+## 🌟 Fonctionnalités principales v5.3
 
-- **Analyse complète** de la qualité de l'eau potable
-- **Recherche géographique étendue** : si aucune donnée n'est disponible pour votre commune, recherche automatique dans les communes voisines (rayon 20km)
-- **Scoring équilibré** basé sur 9 catégories de paramètres
-- **Interface utilisateur intuitive** avec autocomplétion d'adresse
-- **Résultats détaillés** avec recommandations personnalisées
+- **Analyse scientifique équitable** avec bénéfice du doute transparent
+- **Affichage amélioré** : badges colorés, interprétations claires, "Non détecté" pour les paramètres microbiologiques
+- **Recherche géographique étendue** : fallback automatique dans les communes voisines (rayon 20km)
+- **Scoring transparent** basé sur 10 catégories de paramètres avec pondération scientifique
+- **Interface utilisateur intuitive** avec autocomplétion d'adresse et accordéon interactif
+- **Résultats détaillés** avec recommandations personnalisées et calcul de fiabilité
 - **Compatible Shopify 2.0** (section Liquid)
 
 ## 📋 Structure du projet
 
 ```
-├── water-scoring.js        # Moteur de calcul principal
-├── water-analyzer.liquid   # Interface utilisateur Shopify
-└── README.md              # Documentation
+├── scoring-eau.js          # Moteur de calcul principal v5.3
+├── baremes-eau.js          # Barèmes scientifiques v5.2
+├── water-analyzer.liquid   # Interface utilisateur Shopify v5.2
+└── README.md              # Documentation v5.3
 ```
 
 ## 🚀 Installation
 
 ### 1. Pour Shopify
 
-1. **Ajouter le fichier JavaScript** :
-   - Uploadez `water-scoring.js` dans vos assets Shopify
-   - Le fichier sera automatiquement chargé par la section
+1. **Ajouter les fichiers JavaScript** :
+   - Uploadez `scoring-eau.js` dans vos assets Shopify
+   - Uploadez `baremes-eau.js` dans vos assets Shopify
+   - Les fichiers seront automatiquement chargés par la section
 
 2. **Ajouter la section** :
    - Créez un nouveau fichier `water-analyzer.liquid` dans `/sections/`
    - Copiez le contenu du fichier fourni
 
 3. **Utilisation** :
-   - Ajoutez la section "Water Analyzer" à vos pages via l'éditeur de thème
+   - Ajoutez la section "Water Analyzer v5.2" à vos pages via l'éditeur de thème
    - Configurez le titre et la description si souhaité
 
 ### 2. Pour autres plateformes
 
-1. **Intégration JavaScript** :
 ```html
-<script src="water-scoring.js"></script>
+<script src="baremes-eau.js"></script>
+<script src="scoring-eau.js"></script>
 <script>
 // Utiliser les fonctions disponibles
 const result = await fetchHubeauDataWithFallback(codeCommune, lat, lon);
-const score = calculateWaterQualityScore(result.parametersData, options, result.sourceInfo);
+const score = calculateLifeWaterScore(result.parametersData, options, result.sourceInfo);
+const html = generateLifeWaterHTML(score, adresse, result.parametersData);
 </script>
 ```
 
@@ -53,41 +57,75 @@ const score = calculateWaterQualityScore(result.parametersData, options, result.
 
 - **Titre** : Personnalisable via l'éditeur
 - **Description** : Texte d'introduction optionnel
+- **Analyse approfondie** : Option pour inclure les détails techniques
 - **Styles** : Entièrement personnalisables via CSS
 
-### Options d'analyse
+## 📊 Algorithme de scoring v5.3
 
-- **Analyse approfondie** : Inclut plus de détails techniques
-- **Rayon de recherche** : 20km par défaut (modifiable dans le code)
+### Pondérations scientifiques par catégorie
 
-## 📊 Algorithme de scoring
+1. **🦠 Microbiologie** (23%) - Impact sanitaire immédiat
+2. **🔗 Métaux lourds** (16%) - Cancérigènes, bioaccumulation
+3. **🧪 PFAS** (14%) - Polluants éternels
+4. **⚗️ Nitrates** (10%) - Pollution agricole
+5. **🌿 Pesticides** (10%) - Résidus phytosanitaires
+6. **⚖️ Chimie générale** (8%) - Confort et qualité générale
+7. **🌡️ Organoleptiques** (8%) - Acceptabilité, indicateurs
+8. **🧬 Médicaments** (7%) - Résistance antibiotique
+9. **🔬 Microplastiques** (5%) - Impact à long terme
+10. **💧 Chlore** (2%) - Désinfection nécessaire
 
-### Catégories analysées (avec pondération)
+### Algorithme équitable avec bénéfice du doute
 
-1. **🦠 Microbiologique** (20%) - Critère le plus important
-2. **🔗 Métaux lourds** (15%) - Arsenic, plomb, cadmium
-3. **⚗️ Nitrates** (12%) - Pollution agricole
-4. **🌡️ Organoleptiques** (12%) - pH, conductivité, turbidité
-5. **🧪 PFAS** (12%) - Polluants éternels
-6. **🌿 Pesticides** (10%) - Résidus phytosanitaires
-7. **🔬 Microplastiques** (10%) - Pollution plastique
-8. **🧬 Médicaments** (9%) - Résidus pharmaceutiques
-9. **💧 Autres** (5%) - Chlore, désinfection
+- **Paramètres testés** : Score calculé selon formules scientifiques
+- **Paramètres non testés** : Score neutre de 50/100 (bénéfice du doute)
+- **Transparence totale** : Affichage de tous les paramètres importants
+- **Fiabilité pondérée** : Calcul selon la criticité des paramètres testés
 
 ### Niveaux de qualité
 
-- **🟢 EXCELLENT** (80-100) : Eau de qualité exceptionnelle
-- **🟢 TRÈS BON** (70-79) : Eau de très bonne qualité
-- **🟡 BON** (60-69) : Eau de qualité satisfaisante
-- **🟡 CORRECT** (50-59) : Eau correcte, améliorations possibles
-- **🟠 AMÉLIORABLE** (40-49) : Traitement recommandé
-- **🟠 PRÉOCCUPANT** (25-39) : Traitement prioritaire
-- **🔴 MAUVAIS** (15-24) : Risques sanitaires
-- **🔴 CRITIQUE** (0-14) : Impropre à la consommation
+- **🟢 EXCELLENT** (85-100) : Eau de qualité exceptionnelle
+- **🟢 TRÈS BON** (75-84) : Eau de très bonne qualité
+- **🟡 BON** (65-74) : Eau de qualité satisfaisante
+- **🟡 CORRECT** (55-64) : Eau correcte, améliorations possibles
+- **🟠 AMÉLIORABLE** (45-54) : Traitement recommandé
+- **🟠 PRÉOCCUPANT** (35-44) : Traitement prioritaire
+- **🔴 MAUVAIS** (20-34) : Risques sanitaires
+- **🔴 CRITIQUE** (0-19) : Impropre à la consommation
+
+## ✨ Nouvelles fonctionnalités v5.3
+
+### Affichage amélioré des paramètres
+
+- **"Non détecté"** au lieu de "0 undefined" pour les paramètres microbiologiques
+- **Badges colorés** : 🟢 Excellent, 🟡 Bon, 🟠 Moyen, 🔴 Faible
+- **Interprétations claires** : "Aucune contamination - Excellent"
+- **Unités intelligentes** : Correction automatique des unités manquantes
+- **Dates d'analyse** : Affichage de la date de prélèvement
+- **Design premium** : Effets hover et animations fluides
+
+### Exemples d'amélioration
+
+**Avant v5.3 :**
+```
+E. coli: 100/100
+0 undefined
+Impact: Impact sanitaire critique
+```
+
+**Après v5.3 :**
+```
+E. coli: 100/100 🟢 Excellent
+Non détecté
+Aucune contamination - Excellent
+💡 Impact sanitaire critique - risque de gastro-entérite
+📋 UE Directive 2020/2184
+📅 Analysé le 15/06/2025
+```
 
 ## 🔍 Système de fallback géographique
 
-### Fonctionnement
+### Fonctionnement intelligent
 
 1. **Recherche principale** : Données de la commune demandée
 2. **Si insuffisant** (< 3 paramètres) : Recherche automatique dans les communes voisines
@@ -118,7 +156,7 @@ const score = calculateWaterQualityScore(result.parametersData, options, result.
 - **Source** : Service public
 - **Fonction** : Recherche de communes dans un rayon donné
 
-## 🛠️ Fonctions principales
+## 🛠️ Fonctions principales v5.3
 
 ### `fetchHubeauDataWithFallback(codeCommune, lat, lon, rayonKm)`
 Recherche les données de qualité avec fallback géographique.
@@ -143,8 +181,8 @@ Recherche les données de qualité avec fallback géographique.
 }
 ```
 
-### `calculateWaterQualityScore(parametersData, options, sourceInfo)`
-Calcule le score de qualité de l'eau.
+### `calculateLifeWaterScore(parametersData, options, sourceInfo)`
+Calcule le score de qualité de l'eau avec algorithme équitable v5.3.
 
 **Paramètres :**
 - `parametersData` : Données des paramètres analysés
@@ -154,20 +192,51 @@ Calcule le score de qualité de l'eau.
 **Retour :**
 ```javascript
 {
-  score: 85,
-  niveau: 'EXCELLENT',
+  score: 79,
+  fiabilite: 58,
+  niveau: 'TRÈS BON',
   emoji: '🟢',
   couleur: '#28a745',
-  message: 'Eau de qualité exceptionnelle',
+  message: 'Eau de très bonne qualité',
   alertes: [...],
   recommandations: [...],
+  contributions: {...},
+  detailsParCategorie: {...},
   sourceInfo: {...},
-  details: {...}
+  metadata: {
+    version: '5.3 - Scoring équitable avec affichage amélioré',
+    parametres_testes_total: 29,
+    parametres_totaux_total: 47,
+    fiabiliteSimple: 62,
+    fiabilitePonderee: 58
+  }
 }
 ```
 
 ### `generateLifeWaterHTML(scoreResult, adresse, parametersData)`
-Génère le rapport HTML formaté.
+Génère le rapport HTML formaté avec affichage amélioré v5.3.
+
+### Nouvelles fonctions d'affichage v5.3
+
+#### `formaterValeurParametre(valeur, unite, nom)`
+Formate intelligemment l'affichage des valeurs :
+- Paramètres microbiologiques à 0 → "Non détecté"
+- Unités manquantes → Correction automatique
+- Valeurs numériques → Formatage adapté
+
+#### `getInterpretation(valeur, nom)`
+Génère des interprétations claires :
+- **E. coli = 0** → "Aucune contamination - Excellent"
+- **pH = 7.2** → "pH optimal pour la consommation"
+- **Nitrates = 15** → "Niveau acceptable"
+
+#### `genererBadgeQualite(score)`
+Crée des badges colorés selon le score :
+- **90-100** → 🟢 Excellent
+- **75-89** → 🟢 Très bon
+- **60-74** → 🟡 Bon
+- **40-59** → 🟠 Moyen
+- **0-39** → 🔴 Faible
 
 ## ⚠️ Gestion des cas particuliers
 
@@ -177,37 +246,53 @@ Génère le rapport HTML formaté.
 - **Action** : Recommandations pour obtenir des analyses
 
 ### Données insuffisantes
-- **Seuil** : < 3 paramètres
-- **Score max** : 70 (plafonné)
-- **Niveau** : DONNÉES INSUFFISANTES
-- **Action** : Score partiel avec avertissements
+- **Algorithme équitable** : Bénéfice du doute à 50/100
+- **Transparence** : Affichage de tous les paramètres importants
+- **Fiabilité** : Calcul pondéré par criticité
 
 ### Contamination critique
 - **E. coli détecté** : Score = 0, niveau CRITIQUE
-- **Déclassement** : Score plafonné selon la gravité
+- **Déclassement** : Score ajusté selon la gravité
 - **Alertes** : Messages d'urgence affichés
 
 ## 🎨 Personnalisation
 
-### CSS
-Les styles sont entièrement personnalisables via CSS. Classes principales :
-- `.water-analyzer-section`
-- `.life-water-report`
-- `.score-circle`
-- `.points-attention`
-- `.recommandations`
+### CSS v5.3
+Nouveaux styles pour l'affichage amélioré :
+```css
+.parameter-item.improved {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+}
+
+.parameter-value-section {
+  background: #f1f3f4;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.parameter-interpretation {
+  color: #7f8c8d;
+  font-style: italic;
+}
+```
 
 ### JavaScript
 Fonctions modulaires réutilisables :
 - Modification des seuils de scoring
 - Ajout de nouveaux paramètres
-- Personnalisation des recommandations
+- Personnalisation des interprétations
+- Nouveau système de badges
 
 ## 📱 Responsive Design
 
 - **Mobile-first** : Interface optimisée pour tous les écrans
 - **Progressive Enhancement** : Fonctionne même sans JavaScript
 - **Accessibilité** : Support lecteurs d'écran, navigation clavier
+- **Accordéon adaptatif** : Design responsive pour les détails
 
 ## 🔒 Sécurité et Performance
 
@@ -216,25 +301,57 @@ Fonctions modulaires réutilisables :
 - **Validation côté client** : Contrôles des entrées utilisateur
 - **Pas de stockage** : Aucune donnée personnelle conservée
 
-### Performance
+### Performance v5.3
 - **Chargement différé** : Script chargé avec `defer`
 - **Debouncing** : Limitation des appels API d'autocomplétion
 - **Cache navigateur** : Optimisation automatique des ressources
+- **Animations optimisées** : Transitions CSS fluides
 
 ## 🐛 Débogage
 
-### Logs de débogage
+### Logs de débogage v5.3
 Le script affiche des logs détaillés dans la console :
 ```javascript
-console.log('=== RECHERCHE HUBEAU AVEC FALLBACK GÉOGRAPHIQUE ===');
+console.log('=== CALCUL SCORING SCIENTIFIQUE ÉQUITABLE v5.3 ===');
 console.log('✅ Données trouvées dans la commune principale');
 console.log('🔍 Recherche dans les communes voisines...');
+console.log('E. coli: 100/100 (testé)');
+console.log('Score final: 79, Fiabilité: 58%');
 ```
 
 ### Erreurs courantes
 1. **Adresse non trouvée** : Vérifier la saisie
 2. **Pas de données Hubeau** : Normal pour certaines communes rurales
 3. **Erreur réseau** : Problème de connectivité
+4. **Affichage "undefined"** : Corrigé automatiquement en v5.3
+
+## 📈 Métriques et Statistiques
+
+### Exemple de résultat type
+```
+Score final: 79/100 🟢 TRÈS BON
+Fiabilité: 58% (29/47 paramètres testés)
+
+Catégories:
+🦠 Microbiologie: 93/100 (6/7 testés) - Excellent
+🔗 Métaux lourds: 57/100 (1/7 testés) - Améliorable  
+🧪 PFAS: 88/100 (3/4 testés) - Excellent
+⚗️ Nitrates: 75/100 (3/3 testés) - Très bon
+🌿 Pesticides: 87/100 (6/8 testés) - Excellent
+```
+
+## 🔬 Base scientifique
+
+### Normes utilisées
+- **UE Directive 2020/2184** (Eau potable)
+- **OMS Guidelines 2022** (4e édition)
+- **Code de la santé publique français**
+- **Normes ISO** pour méthodes d'analyse
+
+### Principe de transparence
+- Aucun paramètre ajouté sans norme officielle reconnue
+- Bénéfice du doute scientifique pour les paramètres non testés
+- Calcul de fiabilité pondérée par criticité sanitaire
 
 ## 📝 Licence et Crédits
 
@@ -244,16 +361,52 @@ console.log('🔍 Recherche dans les communes voisines...');
 
 ### Code
 - **Auteur** : Life Water Research Group
-- **Version** : 4.4 - Scoring Équilibré avec Fallback Géographique
+- **Version** : 5.3 - Scoring équitable avec affichage amélioré
 - **License** : Propriétaire
+
+## 🆕 Changelog v5.3
+
+### Nouvelles fonctionnalités
+- ✅ Affichage "Non détecté" pour paramètres microbiologiques
+- ✅ Badges colorés avec emojis
+- ✅ Interprétations claires et contextuelles
+- ✅ Correction automatique des unités
+- ✅ Dates d'analyse affichées
+- ✅ Design premium avec effets hover
+- ✅ Accordéon entièrement fonctionnel
+
+### Améliorations techniques
+- ✅ Fonctions de formatage modulaires
+- ✅ Gestion intelligente des cas spéciaux
+- ✅ CSS optimisé et responsive
+- ✅ Export global des nouvelles fonctions
+- ✅ Logs de debug enrichis
+
+### Corrections
+- 🔧 Structure du code réorganisée
+- 🔧 Fonction toggleCategory exportée globalement
+- 🔧 CSS intégré correctement dans la génération HTML
+- 🔧 Gestion des erreurs améliorée
 
 ## 🤝 Support
 
 Pour toute question ou problème :
 1. Vérifiez les logs de la console navigateur
 2. Testez avec différentes adresses
-3. Contactez l'équipe de développement
+3. Vérifiez que les fichiers `baremes-eau.js` et `scoring-eau.js` sont bien chargés
+4. Contactez l'équipe de développement
+
+## 🚀 Roadmap future
+
+### Version 6.0 (à venir)
+- Integration de nouveaux paramètres émergents
+- Système de notifications en temps réel
+- API personnalisée pour analyses privées
+- Dashboard administrateur
+- Rapports PDF exportables
 
 ---
 
 *Analyseur développé par Life Water - "Rendre à la terre une eau digne de confiance"*
+
+**Version 5.3** - Décembre 2024 - Scoring équitable avec affichage amélioré
