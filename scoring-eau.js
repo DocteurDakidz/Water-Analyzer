@@ -1,9 +1,14 @@
 /**
  * =============================================================================
- * SCORING EAU - ALGORITHME SCIENTIFIQUE ÉQUITABLE
+ * SCORING EAU - ALGORITHME SCIENTIFIQUE ÉQUITABLE v5.3.2 FINAL
  * =============================================================================
- * Calcul scientifique avec tous les paramètres importants
- * Version 5.3 - Scoring équitable avec affichage amélioré
+ * TOUTES CORRECTIONS APPLIQUÉES + INTERFACE ACCORDÉON
+ * - Recherche Hubeau étendue (24 mois)
+ * - Correction doublons automatique
+ * - Pondérations corrigées (100%)
+ * - Unités standardisées
+ * - Interface accordéon avec sections dépliantes
+ * Version 5.3.2 FINAL - Scoring équitable avec toutes corrections
  * =============================================================================
  */
 
@@ -54,55 +59,162 @@ function cleanNumericValue(inputValue) {
   return isNaN(numValue) ? null : numValue;
 }
 
-// ===== FONCTIONS GÉOGRAPHIQUES (héritées v4.4) =====
+// ===== RECHERCHE HUBEAU ÉTENDUE v5.3.2 =====
 
-async function fetchHubeauDataWithFallback(codeCommune, lat, lon, rayonKm = 20) {
-  console.log('=== RECHERCHE HUBEAU AVEC FALLBACK GÉOGRAPHIQUE v5.3 ===');
-  console.log(`Commune principale: ${codeCommune}, Coordonnées: ${lat}, ${lon}`);
+/**
+ * Nouvelle fonction fetchHubeauForCommune améliorée
+ * Collecte TOUS les paramètres disponibles en remontant dans l'historique
+ */
+async function fetchHubeauForCommuneComplete(codeCommune, moisRecherche = 24) {
+  console.log(`🔍 Recherche complète pour commune ${codeCommune} sur ${moisRecherche} mois`);
   
-  // 1. Tentative sur la commune principale
-  console.log('🎯 Tentative commune principale...');
-  let result = await fetchHubeauForCommune(codeCommune);
+  // Calculer les dates
+  const dateFinISO = new Date().toISOString().split('T')[0];
+  const dateDebut = new Date();
+  dateDebut.setMonth(dateDebut.getMonth() - moisRecherche);
+  const dateDebutISO = dateDebut.toISOString().split('T')[0];
   
-  if (result.data && Object.keys(result.data).length >= 3) {
-    console.log(`✅ Données trouvées dans la commune principale: ${Object.keys(result.data).length} paramètres`);
+  const url = `https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable/resultats_dis?code_commune=${codeCommune}&date_min_prelevement=${dateDebutISO}&date_max_prelevement=${dateFinISO}&size=1000&sort=desc`;
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    console.log(`📊 Résultats bruts trouvés: ${data.data?.length || 0}`);
+    
+    const parametersData = {};
+    let nomCommune = null;
+    let compteurParametres = {};
+    
+    if (data.data && data.data.length > 0) {
+      nomCommune = data.data[0].nom_commune || `Commune ${codeCommune}`;
+      
+      // Grouper par paramètre et garder le plus récent pour chaque
+      data.data.forEach(result => {
+        const paramCode = result.code_parametre;
+        const datePrelevement = result.date_prelevement;
+        
+        // Compter les analyses par paramètre
+        compteurParametres[paramCode] = (compteurParametres[paramCode] || 0) + 1;
+        
+        if (!parametersData[paramCode]) {
+          // Premier résultat pour ce paramètre
+          parametersData[paramCode] = {
+            name: result.libelle_parametre,
+            unit: result.unite,
+            values: [],
+            latestValue: null,
+            latestDate: null,
+            totalAnalyses: 0
+          };
+        }
+        
+        // Ajouter cette valeur
+        parametersData[paramCode].values.push({
+          numeric: result.resultat_numerique,
+          alphanumeric: result.resultat_alphanumerique,
+          date: datePrelevement,
+          limite_qualite: result.limite_qualite,
+          conclusion_conformite: result.conclusion_conformite
+        });
+        
+        // Mettre à jour si c'est plus récent
+        if (!parametersData[paramCode].latestDate || 
+            new Date(datePrelevement) > new Date(parametersData[paramCode].latestDate)) {
+          parametersData[paramCode].latestValue = {
+            numeric: result.resultat_numerique,
+            alphanumeric: result.resultat_alphanumerique
+          };
+          parametersData[paramCode].latestDate = datePrelevement;
+        }
+        
+        parametersData[paramCode].totalAnalyses++;
+      });
+      
+      console.log(`✅ Paramètres collectés:`, Object.keys(parametersData).length);
+      
+      // Log des paramètres avec leur fréquence
+      Object.entries(compteurParametres)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .forEach(([code, count]) => {
+          const param = parametersData[code];
+          console.log(`${code}: ${param?.name} - ${count} analyses (dernière: ${param?.latestDate})`);
+        });
+    }
+    
+    return {
+      data: parametersData,
+      nomCommune: nomCommune,
+      metadata: {
+        totalResultats: data.data?.length || 0,
+        parametresUniques: Object.keys(parametersData).length,
+        periodeRecherche: `${dateDebutISO} à ${dateFinISO}`,
+        compteurParametres: compteurParametres
+      }
+    };
+    
+  } catch (error) {
+    console.error(`❌ Erreur API Hubeau pour ${codeCommune}:`, error);
+    return { 
+      data: {}, 
+      nomCommune: null,
+      metadata: { error: error.message }
+    };
+  }
+}
+
+/**
+ * Version améliorée du fallback géographique avec recherche complète
+ */
+async function fetchHubeauDataWithFallback(codeCommune, lat, lon, rayonKm = 20, moisRecherche = 24) {
+  console.log('=== RECHERCHE HUBEAU COMPLÈTE v5.3.2 ===');
+  console.log(`Commune: ${codeCommune}, Période: ${moisRecherche} mois, Rayon: ${rayonKm}km`);
+  
+  // 1. Tentative sur la commune principale avec recherche étendue
+  console.log('🎯 Recherche complète commune principale...');
+  let result = await fetchHubeauForCommuneComplete(codeCommune, moisRecherche);
+  
+  // Critère d'acceptation plus souple : au moins 5 paramètres différents
+  if (result.data && Object.keys(result.data).length >= 5) {
+    console.log(`✅ Données suffisantes trouvées: ${Object.keys(result.data).length} paramètres sur ${moisRecherche} mois`);
     return {
       parametersData: result.data,
       sourceInfo: {
-        type: 'commune_principale',
+        type: 'commune_principale_complete',
         codeCommune: codeCommune,
         nomCommune: result.nomCommune || `Commune ${codeCommune}`,
         distance: 0,
-        nombreParametres: Object.keys(result.data).length
+        nombreParametres: Object.keys(result.data).length,
+        metadata: result.metadata
       }
     };
   }
   
-  console.log(`⚠️ Données insuffisantes dans la commune principale (${Object.keys(result.data).length} paramètres)`);
+  console.log(`⚠️ Données insuffisantes (${Object.keys(result.data).length} paramètres), recherche étendue...`);
   
-  // 2. Recherche dans les communes voisines
-  console.log('🔍 Recherche dans les communes voisines...');
-  
+  // 2. Si toujours insuffisant, recherche dans les communes voisines
   try {
     const communesVoisines = await findNearbyCommunes(lat, lon, rayonKm);
     console.log(`Communes voisines trouvées: ${communesVoisines.length}`);
     
-    for (const commune of communesVoisines) {
+    for (const commune of communesVoisines.slice(0, 5)) { // Limiter à 5 communes
       console.log(`🔍 Test commune: ${commune.nom} (${commune.code}) à ${commune.distance.toFixed(1)}km`);
       
-      const resultVoisine = await fetchHubeauForCommune(commune.code);
+      const resultVoisine = await fetchHubeauForCommuneComplete(commune.code, moisRecherche);
       
-      if (resultVoisine.data && Object.keys(resultVoisine.data).length >= 3) {
-        console.log(`✅ Données trouvées dans ${commune.nom}: ${Object.keys(resultVoisine.data).length} paramètres`);
+      if (resultVoisine.data && Object.keys(resultVoisine.data).length >= 5) {
+        console.log(`✅ Données suffisantes trouvées: ${Object.keys(resultVoisine.data).length} paramètres`);
         return {
           parametersData: resultVoisine.data,
           sourceInfo: {
-            type: 'commune_voisine',
+            type: 'commune_voisine_complete',
             codeCommune: commune.code,
             nomCommune: commune.nom,
             distance: commune.distance,
             nombreParametres: Object.keys(resultVoisine.data).length,
-            communePrincipale: codeCommune
+            communePrincipale: codeCommune,
+            metadata: resultVoisine.metadata
           }
         };
       }
@@ -114,72 +226,22 @@ async function fetchHubeauDataWithFallback(codeCommune, lat, lon, rayonKm = 20) 
     console.error('Erreur lors de la recherche géographique:', error);
   }
   
-  // 3. Aucune donnée trouvée
+  // 3. Retourner ce qu'on a trouvé même si insuffisant
   return {
     parametersData: result.data,
     sourceInfo: {
-      type: 'aucune_donnee',
+      type: 'donnees_limitees',
       codeCommune: codeCommune,
       nomCommune: result.nomCommune || `Commune ${codeCommune}`,
       distance: 0,
       nombreParametres: Object.keys(result.data).length,
-      tentatives: 'Recherche étendue effectuée sans succès'
+      message: `Seulement ${Object.keys(result.data).length} paramètres trouvés sur ${moisRecherche} mois`,
+      metadata: result.metadata
     }
   };
 }
 
-async function fetchHubeauForCommune(codeCommune) {
-  const url = `https://hubeau.eaufrance.fr/api/v1/qualite_eau_potable/resultats_dis?code_commune=${codeCommune}&size=100&sort=desc`;
-  
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    const parametersData = {};
-    let nomCommune = null;
-    
-    if (data.data && data.data.length > 0) {
-      nomCommune = data.data[0].nom_commune || `Commune ${codeCommune}`;
-      
-      data.data.forEach(result => {
-        const paramCode = result.code_parametre;
-        if (!parametersData[paramCode]) {
-          parametersData[paramCode] = {
-            name: result.libelle_parametre,
-            unit: result.unite,
-            values: [],
-            latestValue: null,
-            latestDate: null
-          };
-        }
-        
-        parametersData[paramCode].values.push({
-          numeric: result.resultat_numerique,
-          alphanumeric: result.resultat_alphanumerique,
-          date: result.date_prelevement
-        });
-        
-        if (!parametersData[paramCode].latestDate || 
-            new Date(result.date_prelevement) > new Date(parametersData[paramCode].latestDate)) {
-          parametersData[paramCode].latestValue = {
-            numeric: result.resultat_numerique,
-            alphanumeric: result.resultat_alphanumerique
-          };
-          parametersData[paramCode].latestDate = result.date_prelevement;
-        }
-      });
-    }
-    
-    return {
-      data: parametersData,
-      nomCommune: nomCommune
-    };
-    
-  } catch (error) {
-    console.error(`Erreur API Hubeau pour ${codeCommune}:`, error);
-    return { data: {}, nomCommune: null };
-  }
-}
+// ===== FONCTIONS GÉOGRAPHIQUES (héritées v4.4) =====
 
 async function findNearbyCommunes(lat, lon, rayonKm) {
   try {
@@ -232,60 +294,81 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// ===== FONCTION DE DEBUG =====
-
-function debugHubeauData(parametersData) {
-  console.log('=== DEBUG DONNÉES HUBEAU v5.3 ===');
-  console.log('Nombre total de paramètres:', Object.keys(parametersData).length);
-  
-  // Afficher tous les codes reçus
-  console.log('Codes paramètres reçus:', Object.keys(parametersData));
-  
-  // Détailler chaque paramètre
-  Object.entries(parametersData).forEach(([code, param]) => {
-    console.log(`Code ${code}:`, {
-      nom: param.name,
-      unite: param.unit,
-      valeur: param.latestValue,
-      date: param.latestDate
-    });
-  });
-  
-  // Vérifier le mapping avec PARAMETRES_SEUIL_MAX
-  console.log('=== MAPPING AVEC PARAMETRES_SEUIL_MAX ===');
-  Object.keys(PARAMETRES_SEUIL_MAX).forEach(code => {
-    if (parametersData[code]) {
-      console.log(`✅ ${code} (${PARAMETRES_SEUIL_MAX[code].nom}) - TROUVÉ`);
-    } else {
-      console.log(`❌ ${code} (${PARAMETRES_SEUIL_MAX[code].nom}) - MANQUANT`);
-    }
-  });
-  
-  // Vérifier le mapping avec PARAMETRES_OPTIMAL_CENTRAL
-  console.log('=== MAPPING AVEC PARAMETRES_OPTIMAL_CENTRAL ===');
-  Object.keys(PARAMETRES_OPTIMAL_CENTRAL).forEach(code => {
-    if (parametersData[code]) {
-      console.log(`✅ ${code} (${PARAMETRES_OPTIMAL_CENTRAL[code].nom}) - TROUVÉ`);
-    } else {
-      console.log(`❌ ${code} (${PARAMETRES_OPTIMAL_CENTRAL[code].nom}) - MANQUANT`);
-    }
-  });
-  
-  // Paramètres dans Hubeau mais pas dans nos barèmes
-  console.log('=== PARAMÈTRES HUBEAU NON MAPPÉS ===');
-  Object.keys(parametersData).forEach(code => {
-    if (!PARAMETRES_SEUIL_MAX[code] && !PARAMETRES_OPTIMAL_CENTRAL[code]) {
-      console.log(`🆕 ${code}: ${parametersData[code].name} (${parametersData[code].unit})`);
-    }
-  });
-  
-  return parametersData;
-}
-
-// ===== NOUVELLES FONCTIONS AFFICHAGE v5.3 =====
+// ===== CORRECTION DES DOUBLONS v5.3.2 =====
 
 /**
- * Formate l'affichage d'une valeur avec son unité
+ * Dédoublonne les paramètres équivalents
+ * Garde la meilleure valeur disponible selon la priorité
+ */
+function dedoublonnerParametres(parametersData) {
+  console.log('=== DÉDOUBLONNAGE DES PARAMÈTRES v5.3.2 ===');
+  
+  const parametersClean = { ...parametersData };
+  const codesSupprimes = [];
+  const substitutions = [];
+  
+  Object.entries(PARAMETRES_EQUIVALENTS).forEach(([groupKey, group]) => {
+    console.log(`🔍 Vérification groupe: ${group.nom}`);
+    
+    // Chercher quels codes de ce groupe sont disponibles
+    const codesDisponibles = group.codes.filter(code => parametersData[code]);
+    
+    if (codesDisponibles.length > 1) {
+      console.log(`❌ Doublon détecté: ${group.nom} - Codes: ${codesDisponibles.join(', ')}`);
+      
+      // Garder selon la priorité
+      let codeAGarder = null;
+      for (const codePrioritaire of group.priorite) {
+        if (codesDisponibles.includes(codePrioritaire)) {
+          codeAGarder = codePrioritaire;
+          break;
+        }
+      }
+      
+      if (codeAGarder) {
+        // Supprimer les autres codes
+        codesDisponibles.forEach(code => {
+          if (code !== codeAGarder) {
+            delete parametersClean[code];
+            codesSupprimes.push(code);
+            substitutions.push({
+              supprime: code,
+              garde: codeAGarder,
+              nom: group.nom,
+              raisonSuppression: 'Doublon - code alternatif'
+            });
+          }
+        });
+        
+        console.log(`✅ Gardé: ${codeAGarder} (${group.nom}), supprimé: ${codesDisponibles.filter(c => c !== codeAGarder).join(', ')}`);
+      }
+    } else if (codesDisponibles.length === 1) {
+      console.log(`✅ Pas de doublon: ${group.nom} - Code: ${codesDisponibles[0]}`);
+    } else {
+      console.log(`⚪ Groupe absent: ${group.nom}`);
+    }
+  });
+  
+  console.log(`📊 Dédoublonnage terminé:`);
+  console.log(`- Codes supprimés: ${codesSupprimes.length}`);
+  console.log(`- Paramètres avant: ${Object.keys(parametersData).length}`);
+  console.log(`- Paramètres après: ${Object.keys(parametersClean).length}`);
+  
+  return {
+    parametersData: parametersClean,
+    codesSupprimes,
+    substitutions,
+    stats: {
+      avant: Object.keys(parametersData).length,
+      apres: Object.keys(parametersClean).length,
+      supprimes: codesSupprimes.length
+    }
+  };
+}
+// ===== FONCTIONS AFFICHAGE AMÉLIORÉES v5.3.2 =====
+
+/**
+ * Formate l'affichage d'une valeur avec son unité (version corrigée)
  */
 function formaterValeurParametre(valeur, unite, nom) {
   // Cas spéciaux pour les paramètres microbiologiques
@@ -303,10 +386,10 @@ function formaterValeurParametre(valeur, unite, nom) {
     };
   }
   
-  // Gestion des unités manquantes
+  // Gestion des unités manquantes - CORRECTION v5.3.2
   let uniteAffichee = unite;
   if (!unite || unite === 'undefined' || unite === 'null') {
-    // Deviner l'unité selon le paramètre
+    // Deviner l'unité selon le paramètre avec unités corrigées
     if (nom.includes('pH')) {
       uniteAffichee = 'unités pH';
     } else if (nom.includes('Conductivité')) {
@@ -314,7 +397,12 @@ function formaterValeurParametre(valeur, unite, nom) {
     } else if (nom.includes('Température')) {
       uniteAffichee = '°C';
     } else if (parametresMicrobiologiques.some(p => nom.includes(p))) {
-      uniteAffichee = 'bactéries/100mL';
+      // CORRECTION: Unités microbiologie standardisées
+      if (nom.includes('aérobies 22°C')) {
+        uniteAffichee = 'UFC/mL';
+      } else {
+        uniteAffichee = 'UFC/100mL';
+      }
     } else {
       uniteAffichee = '';
     }
@@ -414,7 +502,7 @@ function genererBadgeQualite(score) {
   };
 }
 
-// ===== NOUVELLES FONCTIONS SCIENTIFIQUES v5.3 =====
+// ===== FONCTIONS SCIENTIFIQUES CORRIGÉES v5.3.2 =====
 
 /**
  * Calcule le score d'un paramètre avec seuil maximal
@@ -546,16 +634,92 @@ function calculerScoreCategorieComplete(categorie, parametersData) {
 }
 
 /**
- * ALGORITHME PRINCIPAL v5.3 - Calcul équitable avec TOUS les paramètres
+ * Obtient le nom lisible d'une catégorie
+ */
+function getNomCategorie(categorie) {
+  if (CATEGORIES_COMPLETES[categorie]) {
+    return CATEGORIES_COMPLETES[categorie].nom;
+  }
+  
+  // Fallback pour compatibilité
+  const noms = {
+    microbiologique: '🦠 Microbiologie',
+    metauxLourds: '🔗 Métaux lourds', 
+    pfas: '🧪 PFAS',
+    nitrates: '⚗️ Nitrates',
+    pesticides: '🌿 Pesticides',
+    organoleptiques: '🌡️ Organoleptiques',
+    chimie_generale: '⚖️ Chimie générale',
+    medicaments: '🧬 Médicaments',
+    microplastiques: '🔬 Microplastiques',
+    chlore: '💧 Chlore'
+  };
+  return noms[categorie] || categorie;
+}
+
+// ===== FONCTION DE DEBUG =====
+
+function debugHubeauData(parametersData) {
+  console.log('=== DEBUG DONNÉES HUBEAU v5.3.2 ===');
+  console.log('Nombre total de paramètres:', Object.keys(parametersData).length);
+  
+  // Afficher tous les codes reçus
+  console.log('Codes paramètres reçus:', Object.keys(parametersData));
+  
+  // Détailler chaque paramètre
+  Object.entries(parametersData).forEach(([code, param]) => {
+    console.log(`Code ${code}:`, {
+      nom: param.name,
+      unite: param.unit,
+      valeur: param.latestValue,
+      date: param.latestDate
+    });
+  });
+  
+  // Vérifier le mapping avec PARAMETRES_SEUIL_MAX
+  console.log('=== MAPPING AVEC PARAMETRES_SEUIL_MAX ===');
+  Object.keys(PARAMETRES_SEUIL_MAX).forEach(code => {
+    if (parametersData[code]) {
+      console.log(`✅ ${code} (${PARAMETRES_SEUIL_MAX[code].nom}) - TROUVÉ`);
+    } else {
+      console.log(`❌ ${code} (${PARAMETRES_SEUIL_MAX[code].nom}) - MANQUANT`);
+    }
+  });
+  
+  // Vérifier le mapping avec PARAMETRES_OPTIMAL_CENTRAL
+  console.log('=== MAPPING AVEC PARAMETRES_OPTIMAL_CENTRAL ===');
+  Object.keys(PARAMETRES_OPTIMAL_CENTRAL).forEach(code => {
+    if (parametersData[code]) {
+      console.log(`✅ ${code} (${PARAMETRES_OPTIMAL_CENTRAL[code].nom}) - TROUVÉ`);
+    } else {
+      console.log(`❌ ${code} (${PARAMETRES_OPTIMAL_CENTRAL[code].nom}) - MANQUANT`);
+    }
+  });
+  
+  // Paramètres dans Hubeau mais pas dans nos barèmes
+  console.log('=== PARAMÈTRES HUBEAU NON MAPPÉS ===');
+  Object.keys(parametersData).forEach(code => {
+    if (!PARAMETRES_SEUIL_MAX[code] && !PARAMETRES_OPTIMAL_CENTRAL[code]) {
+      console.log(`🆕 ${code}: ${parametersData[code].name} (${parametersData[code].unit})`);
+    }
+  });
+  
+  return parametersData;
+}
+/**
+ * ALGORITHME PRINCIPAL v5.3.2 - Calcul équitable avec TOUTES les corrections
  */
 function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null) {
-  console.log('=== CALCUL SCORING SCIENTIFIQUE ÉQUITABLE v5.3 ===');
+  console.log('=== CALCUL SCORING SCIENTIFIQUE ÉQUITABLE v5.3.2 FINAL ===');
   console.log('Paramètres reçus:', Object.keys(parametersData));
   
-  // DEBUG: Ajouter le debug des données
-  debugHubeauData(parametersData);
+  // 1. DÉDOUBLONNAGE AUTOMATIQUE
+  const dedouble = dedoublonnerParametres(parametersData);
+  const parametersClean = dedouble.parametersData;
   
-  const nombreParametres = Object.keys(parametersData).length;
+  console.log(`🔧 Dédoublonnage: ${Object.keys(parametersData).length} → ${Object.keys(parametersClean).length} paramètres`);
+  
+  const nombreParametres = Object.keys(parametersClean).length;
   
   // ===== CAS CRITIQUE: AUCUNE DONNÉE =====
   if (nombreParametres === 0) {
@@ -587,9 +751,10 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
       sourceInfo: sourceInfo,
       metadata: {
         dateCalcul: new Date().toISOString(),
-        version: '5.3 - Scoring équitable avec affichage amélioré',
+        version: '5.3.2 FINAL - Toutes corrections appliquées',
         analyseApprofondie: options.analyseApprofondie || false,
-        nombreParametres: 0
+        nombreParametres: 0,
+        corrections_appliquees: dedouble.substitutions
       }
     };
   }
@@ -606,7 +771,7 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
   // Pour chaque catégorie
   Object.keys(PONDERATIONS_CATEGORIES).forEach(categorie => {
     const poids = PONDERATIONS_CATEGORIES[categorie];
-    const resultCategorie = calculerScoreCategorieComplete(categorie, parametersData);
+    const resultCategorie = calculerScoreCategorieComplete(categorie, parametersClean);
     
     // Contribution au score final
     const contribution = (poids * resultCategorie.score) / 100;
@@ -648,8 +813,8 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
   // ===== CALCUL DE LA FIABILITÉ PONDÉRÉE =====
   const fiabiliteSimple = (parametres_testes_total / parametres_totaux_total) * 100;
   const fiabilitePonderee = calculerFiabilitePonderee(
-    Object.keys(parametersData), 
-    Object.keys(parametersData)
+    Object.keys(parametersClean), 
+    Object.keys(parametersClean)
   );
   const fiabilite = Math.round(fiabilitePonderee);
   const infoFiabilite = getNiveauFiabilite(fiabilite);
@@ -705,8 +870,13 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
   }
   
   // Ajout info source si commune voisine
-  if (sourceInfo && sourceInfo.type === 'commune_voisine') {
+  if (sourceInfo && sourceInfo.type === 'commune_voisine_complete') {
     alertes.unshift(`ℹ️ Analyse basée sur les données de ${sourceInfo.nomCommune} (${sourceInfo.distance.toFixed(1)}km)`);
+  }
+  
+  // Ajout info dédoublonnage
+  if (dedouble.substitutions.length > 0) {
+    alertes.unshift(`🔧 ${dedouble.substitutions.length} doublons corrigés automatiquement (codes alternatifs Hubeau)`);
   }
   
   // ===== ANALYSE COMPLÈTE LIFE WATER =====
@@ -738,201 +908,34 @@ function calculateLifeWaterScore(parametersData, options = {}, sourceInfo = null
     sourceInfo: sourceInfo,
     metadata: {
       dateCalcul: new Date().toISOString(),
-      version: '5.3 - Scoring équitable avec affichage amélioré',
+      version: '5.3.2 FINAL - Toutes corrections appliquées',
       analyseApprofondie: options.analyseApprofondie || false,
       nombreParametres: nombreParametres,
       parametres_testes_total: parametres_testes_total,
       parametres_totaux_total: parametres_totaux_total,
       fiabiliteSimple: Math.round(fiabiliteSimple),
-      fiabilitePonderee: fiabilite
+      fiabilitePonderee: fiabilite,
+      corrections_appliquees: dedouble.substitutions,
+      ponderations_corrigees: true,
+      unites_standardisees: true
     }
   };
 }
+// ===== INTERFACE ACCORDÉON v5.3.2 =====
 
 /**
- * Obtient le nom lisible d'une catégorie
+ * Génère l'HTML avec sections accordéon dépliantes
  */
-function getNomCategorie(categorie) {
-  if (CATEGORIES_COMPLETES[categorie]) {
-    return CATEGORIES_COMPLETES[categorie].nom;
-  }
-  
-  // Fallback pour compatibilité
-  const noms = {
-    microbiologique: '🦠 Microbiologie',
-    metauxLourds: '🔗 Métaux lourds', 
-    pfas: '🧪 PFAS',
-    nitrates: '⚗️ Nitrates',
-    pesticides: '🌿 Pesticides',
-    organoleptiques: '🌡️ Organoleptiques',
-    chimie_generale: '⚖️ Chimie générale',
-    medicaments: '🧬 Médicaments',
-    microplastiques: '🔬 Microplastiques',
-    chlore: '💧 Chlore'
-  };
-  return noms[categorie] || categorie;
-}
-
-// ===== FONCTION TOGGLE POUR ACCORDÉON =====
-
-/**
- * Fonction toggle pour les catégories (accessible globalement)
- */
-function toggleCategory(categoryId) {
-  const details = document.getElementById('details-' + categoryId);
-  const header = details.previousElementSibling;
-  
-  if (details.style.display === 'none' || details.style.display === '') {
-    details.style.display = 'block';
-    header.classList.add('expanded');
-  } else {
-    details.style.display = 'none';
-    header.classList.remove('expanded');
-  }
-}
-
-// ===== GÉNÉRATION HTML MISE À JOUR v5.3 =====
-
 function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
   // ===== CAS SPÉCIAUX =====
   if (scoreResult.score === 0 && scoreResult.fiabilite === 0) {
-    return `
-      <div class="life-water-report">
-        <div class="life-water-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
-          <h2>❌ <strong>Aucune donnée disponible</strong></h2>
-          <p>Désolé, nous n'avons trouvé aucune analyse de qualité d'eau pour cette adresse dans la base Hubeau.</p>
-          <p>Recherche étendue effectuée dans un rayon de 20km sans succès.</p>
-        </div>
-
-        <div class="resultat-principal" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
-          <h3>📊 <strong>Résultat de votre recherche</strong></h3>
-          <p><strong>Adresse analysée :</strong> ${adresse}</p>
-          
-          <div class="score-display">
-            <div class="score-circle" style="border-color: #dc3545; color: #dc3545;">
-              <div class="score-number">❌</div>
-              <div class="score-label">Aucune donnée</div>
-            </div>
-            <div class="score-info">
-              <h4 style="color: #dc3545;">❌ DONNÉES MANQUANTES</h4>
-              <p class="score-message">Aucune donnée de qualité disponible</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="content-section">
-          <div class="recommandations">
-            <p><strong>🔍 Que faire maintenant ?</strong></p>
-            <ul>
-              ${scoreResult.recommandations.map(reco => `<li>${reco}</li>`).join('')}
-            </ul>
-          </div>
-
-          <div class="complete-analysis-cta">
-            <h4>🔬 <strong>Analyse complète Life Water</strong></h4>
-            <p>${scoreResult.analyseComplete.message}</p>
-            <button onclick="alert('Contactez Life Water pour une analyse personnalisée')" style="background: #667eea; color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-weight: 600;">
-              🧪 Demander une analyse complète
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+    return generateNoDataHTML(scoreResult, adresse);
   }
 
-  // ===== AFFICHAGE NORMAL v5.3 =====
+  // ===== AFFICHAGE NORMAL v5.3.2 =====
   
-  // Barres de contribution par catégorie
-  let contributionsHTML = '';
-  Object.entries(scoreResult.contributions).forEach(([categorie, contrib]) => {
-    const couleurBarre = contrib.score >= 75 ? '#28a745' : contrib.score >= 50 ? '#ffc107' : '#dc3545';
-    const details = scoreResult.detailsParCategorie[categorie];
-    
-    contributionsHTML += `
-      <div class="contribution-item">
-        <div class="contribution-header">
-          <span class="contribution-name">${details.nom}</span>
-          <span class="contribution-coverage">${contrib.parametres_testes}/${contrib.parametres_totaux} testés</span>
-          <span class="contribution-points">${contrib.points.toFixed(1)} pts</span>
-        </div>
-        <div class="contribution-bar">
-          <div class="contribution-fill" style="width: ${contrib.score}%; background-color: ${couleurBarre};"></div>
-        </div>
-        <div class="contribution-score">${contrib.score.toFixed(0)}/100</div>
-      </div>
-    `;
-  });
-
-  // Détails par catégorie (accordéon) avec affichage amélioré
-  let detailsHTML = '';
-  Object.entries(scoreResult.detailsParCategorie).forEach(([categorie, details]) => {
-    const parametresTestes = details.details.filter(p => p.teste);
-    const parametresNonTestes = details.details.filter(p => !p.teste);
-    
-    detailsHTML += `
-      <div class="category-accordion">
-        <div class="category-header" onclick="toggleCategory('${categorie}')">
-          <span class="category-title">${details.nom} (${details.score.toFixed(0)}/100)</span>
-          <span class="category-coverage">${details.parametres_testes}/${details.parametres_totaux} paramètres</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="category-details" id="details-${categorie}" style="display: none;">
-          <p class="category-description">${details.description}</p>
-          
-          ${parametresTestes.length > 0 ? `
-          <div class="parameters-section">
-            <h5>✅ Paramètres testés :</h5>
-            ${parametresTestes.map(param => {
-              const format = formaterValeurParametre(param.valeur, param.unite, param.nom);
-              const badge = genererBadgeQualite(param.score);
-              
-              return `
-                <div class="parameter-item tested improved">
-                  <div class="parameter-header">
-                    <div class="parameter-title">
-                      <strong>${param.nom}</strong>
-                      ${badge.html}
-                    </div>
-                    <span class="parameter-score ${param.score >= 75 ? 'good' : param.score >= 50 ? 'medium' : 'bad'}">${param.score}/100</span>
-                  </div>
-                  <div class="parameter-details">
-                    <div class="parameter-value-section">
-                      <span class="parameter-value">${format.valeur} ${format.unite}</span>
-                      <span class="parameter-interpretation">${format.interpretation}</span>
-                    </div>
-                    <div class="parameter-meta">
-                      <span class="parameter-impact">💡 ${param.impact}</span>
-                      <span class="parameter-norm">📋 ${param.norme}</span>
-                      ${param.date ? `<span class="parameter-date">📅 Analysé le ${new Date(param.date).toLocaleDateString('fr-FR')}</span>` : ''}
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-          ` : ''}
-          
-          ${parametresNonTestes.length > 0 ? `
-          <div class="parameters-section">
-            <h5>⚪ Paramètres non testés (bénéfice du doute 50/100) :</h5>
-            ${parametresNonTestes.map(param => `
-              <div class="parameter-item untested">
-                <div class="parameter-header">
-                  <strong>${param.nom}</strong>
-                  <span class="parameter-score neutral">50/100</span>
-                </div>
-                <div class="parameter-details">
-                  <span class="parameter-impact">⚠️ Impact: ${param.impact}</span>
-                  <span class="parameter-norm">Norme: ${param.norme}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  });
+  // Sections accordéon principales
+  const accordionSections = generateAccordionSections(scoreResult);
 
   return `
     <div class="life-water-report">
@@ -940,10 +943,10 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
       <div class="life-water-header">
         <h2>🔬 <strong>Analyse scientifique équitable de la qualité de votre eau</strong></h2>
         <p>Cette analyse vous est offerte par <strong>Life Water</strong>.</p>
-        <p>Algorithme scientifique v5.3 avec scoring équitable - TOUS les paramètres importants pris en compte.</p>
+        <p>Algorithme scientifique v${scoreResult.metadata.version} avec scoring équitable - TOUS les paramètres importants pris en compte.</p>
         <p><strong>Life Water est un groupe privé de recherche appliquée</strong>, engagé dans l'étude et l'amélioration de la qualité de l'eau destinée à la consommation humaine.</p>
         <hr>
-        <p>💡 <strong>Nouveauté v5.3 :</strong> Affichage amélioré avec interprétations claires et badges de qualité.</p>
+        <p>💡 <strong>Nouveauté v5.3.2 :</strong> Toutes corrections appliquées + Interface accordéon interactive.</p>
       </div>
 
       <!-- Résultat Principal -->
@@ -951,7 +954,7 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
         <h3>📊 <strong>Résultat de votre analyse équitable</strong></h3>
         <p><strong>Adresse analysée :</strong> ${adresse}</p>
         
-        ${scoreResult.sourceInfo && scoreResult.sourceInfo.type === 'commune_voisine' ? `
+        ${scoreResult.sourceInfo && scoreResult.sourceInfo.type.includes('commune_voisine') ? `
         <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin: 15px 0;">
           <p style="margin: 0; font-size: 1.1em;"><strong>📍 Point de collecte :</strong> ${scoreResult.sourceInfo.nomCommune} (${scoreResult.sourceInfo.distance.toFixed(1)}km)</p>
           <p style="margin: 5px 0 0 0; font-size: 0.9em; opacity: 0.9;">Données de la commune la plus proche utilisées</p>
@@ -985,22 +988,8 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
       </div>
 
       <div class="content-section">
-        <!-- Contributions détaillées -->
-        <div class="contributions-section">
-          <h4>🎯 <strong>Détail des contributions au score</strong></h4>
-          <div class="contributions-grid">
-            ${contributionsHTML}
-          </div>
-        </div>
-
-        <!-- Détails par catégorie (accordéon) -->
-        <div class="details-section">
-          <h4>🔍 <strong>Analyse détaillée par catégorie</strong></h4>
-          <p>Cliquez sur une catégorie pour voir le détail des paramètres testés et non testés :</p>
-          <div class="categories-accordion">
-            ${detailsHTML}
-          </div>
-        </div>
+        <!-- SECTIONS ACCORDÉON DÉPLIANTES -->
+        ${accordionSections}
 
         <!-- Informations détectées -->
         <div class="points-attention">
@@ -1038,12 +1027,18 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
           <p><strong>🎯 Paramètres analysés :</strong> ${scoreResult.metadata.parametres_testes_total}/${scoreResult.metadata.parametres_totaux_total}</p>
           <p><strong>📍 Source :</strong> ${scoreResult.sourceInfo ? scoreResult.sourceInfo.nomCommune : 'Données Hubeau'}</p>
           
+          ${scoreResult.metadata.corrections_appliquees && scoreResult.metadata.corrections_appliquees.length > 0 ? `
+          <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 0.9em;"><strong>🔧 Corrections appliquées :</strong> ${scoreResult.metadata.corrections_appliquees.length} doublons supprimés, pondérations corrigées (100%), unités standardisées.</p>
+          </div>
+          ` : ''}
+          
           <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 0; font-size: 0.9em;"><strong>📋 Normes utilisées :</strong> UE Directive 2020/2184, OMS Guidelines 2022, Code de la santé publique français. Principe : aucun paramètre ajouté sans norme officielle reconnue.</p>
           </div>
           
           <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>🧮 Scoring équitable v5.3 :</strong> TOUS les paramètres importants sont pris en compte. Les paramètres non testés reçoivent un score neutre de 50/100 (bénéfice du doute), garantissant une évaluation juste qui ne masque pas les analyses manquantes importantes.</p>
+            <p style="margin: 0;"><strong>🧮 Scoring équitable v5.3.2 :</strong> TOUS les paramètres importants sont pris en compte. Les paramètres non testés reçoivent un score neutre de 50/100 (bénéfice du doute), garantissant une évaluation juste qui ne masque pas les analyses manquantes importantes.</p>
           </div>
           
           <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 20px 0;">
@@ -1059,383 +1054,957 @@ function generateLifeWaterHTML(scoreResult, adresse, parametersData) {
       </div>
     </div>
 
-    <style>
-      /* Styles spécifiques v5.3 */
-      .score-details {
-        font-size: 0.9em;
-        opacity: 0.9;
-        margin: 5px 0 0 0;
-      }
-      
-      .contribution-coverage {
-        font-size: 0.8em;
-        color: #666;
-        background: #f0f0f0;
-        padding: 2px 6px;
-        border-radius: 10px;
-      }
-      
-      .fiabilite-section {
-        background: rgba(255,255,255,0.1);
-        padding: 20px;
-        border-radius: 10px;
-        margin: 20px 0;
-      }
-      
-      .fiabilite-bar {
-        width: 100%;
-        height: 20px;
-        background: rgba(255,255,255,0.3);
-        border-radius: 10px;
-        overflow: hidden;
-        margin: 10px 0;
-      }
-      
-      .fiabilite-fill {
-        height: 100%;
-        transition: width 1s ease;
-      }
-      
-      .fiabilite-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin: 10px 0;
-      }
-      
-      .fiabilite-percentage {
-        font-size: 1.2em;
-        font-weight: 600;
-      }
-      
-      .fiabilite-message {
-        font-size: 0.9em;
-        opacity: 0.9;
-        margin: 5px 0 0 0;
-      }
-      
-      .contributions-grid {
-        display: grid;
-        gap: 15px;
-        margin: 20px 0;
-      }
-      
-      .contribution-item {
-        background: white;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
-      }
-      
-      .contribution-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-      
-      .contribution-name {
-        font-weight: 600;
-        flex: 1;
-      }
-      
-      .contribution-points {
-        font-weight: 600;
-        color: #667eea;
-      }
-      
-      .contribution-bar {
-        width: 100%;
-        height: 8px;
-        background: #e9ecef;
-        border-radius: 4px;
-        overflow: hidden;
-        margin: 5px 0;
-      }
-      
-      .contribution-fill {
-        height: 100%;
-        transition: width 1s ease;
-      }
-      
-      .contribution-score {
-        text-align: center;
-        font-size: 0.9em;
-        color: #666;
-      }
-      
-      /* Accordéon par catégorie */
-      .category-accordion {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        margin: 10px 0;
-        overflow: hidden;
-      }
-      
-      .category-header {
-        background: #f8f9fa;
-        padding: 15px;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: background-color 0.2s ease;
-      }
-      
-      .category-header:hover {
-        background: #e9ecef;
-      }
-      
-      .category-title {
-        font-weight: 600;
-        font-size: 1.1em;
-      }
-      
-      .category-coverage {
-        font-size: 0.9em;
-        color: #666;
-        background: white;
-        padding: 4px 8px;
-        border-radius: 12px;
-      }
-      
-      .expand-icon {
-        transition: transform 0.2s ease;
-      }
-      
-      .category-header.expanded .expand-icon {
-        transform: rotate(180deg);
-      }
-      
-      .category-details {
-        padding: 20px;
-        background: white;
-        border-top: 1px solid #eee;
-      }
-      
-      .category-description {
-        font-style: italic;
-        color: #666;
-        margin-bottom: 15px;
-      }
-      
-      .parameters-section {
-        margin: 20px 0;
-      }
-      
-      .parameters-section h5 {
-        margin: 0 0 10px 0;
-        font-size: 1em;
-        color: #333;
-      }
-      
-      .parameter-item {
-        background: #f8f9fa;
-        border-radius: 6px;
-        padding: 12px;
-        margin: 8px 0;
-        border-left: 4px solid #ddd;
-      }
-      
-      .parameter-item.tested {
-        border-left-color: #28a745;
-      }
-      
-      .parameter-item.untested {
-        border-left-color: #6c757d;
-      }
-      
-      .parameter-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      
-      .parameter-score {
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.9em;
-        font-weight: 600;
-      }
-      
-      .parameter-score.good {
-        background: #d4edda;
-        color: #155724;
-      }
-      
-      .parameter-score.medium {
-        background: #fff3cd;
-        color: #856404;
-      }
-      
-      .parameter-score.bad {
-        background: #f8d7da;
-        color: #721c24;
-      }
-      
-      .parameter-score.neutral {
-        background: #e2e3e5;
-        color: #495057;
-      }
-      
-      .parameter-details {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 0.9em;
-      }
-      
-      .parameter-value {
-        font-weight: 600;
-        color: #495057;
-      }
-      
-      .parameter-impact {
-        color: #666;
-      }
-      
-      .parameter-norm {
-        color: #007bff;
-        font-size: 0.8em;
-      }
-      
-      /* ===== STYLES AMÉLIORÉS v5.3 ===== */
-      .parameter-item.improved {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        padding: 16px;
-        margin: 12px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        transition: all 0.2s ease;
-      }
-
-      .parameter-item.improved:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transform: translateY(-1px);
-      }
-
-      .parameter-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex: 1;
-      }
-
-      .parameter-value-section {
-        background: #f1f3f4;
-        padding: 10px;
-        border-radius: 6px;
-        margin: 8px 0;
-      }
-
-      .parameter-value {
-        font-weight: 700;
-        color: #2c3e50;
-        font-size: 1.1em;
-        display: block;
-      }
-
-      .parameter-interpretation {
-        color: #7f8c8d;
-        font-size: 0.9em;
-        font-style: italic;
-        display: block;
-        margin-top: 4px;
-      }
-
-      .parameter-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 0.85em;
-      }
-
-      .parameter-impact {
-        color: #e74c3c;
-      }
-
-      .parameter-norm {
-        color: #3498db;
-      }
-
-      .parameter-date {
-        color: #95a5a6;
-      }
-      
-      .complete-analysis-cta {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 30px;
-        border-radius: 15px;
-        text-align: center;
-        margin: 30px 0;
-      }
-      
-      .complete-analysis-cta h4 {
-        margin: 0 0 15px 0;
-        font-size: 1.5em;
-      }
-      
-      .complete-analysis-cta p {
-        margin: 10px 0;
-        opacity: 0.95;
-      }
-      
-      .complete-analysis-cta button:hover {
-        background: #5a67d8 !important;
-        transform: translateY(-2px);
-        transition: all 0.3s ease;
-      }
-      
-      /* Responsive */
-      @media screen and (max-width: 749px) {
-        .category-header {
-          flex-direction: column;
-          gap: 8px;
-          align-items: flex-start;
-        }
-        
-        .parameter-header {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 8px;
-        }
-        
-        .parameter-details {
-          font-size: 0.8em;
-        }
-        
-        .parameter-title {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 6px;
-        }
-        
-        .parameter-meta {
-          font-size: 0.8em;
-        }
-      }
-    </style>
+    ${generateAccordionCSS()}
   `;
+}
+
+/**
+ * Génère les sections accordéon dépliantes
+ */
+function generateAccordionSections(scoreResult) {
+  return `
+    <!-- SECTIONS ACCORDÉON DÉPLIANTES -->
+    <div class="accordion-sections">
+      
+      <!-- 1. DÉTAIL DES CONTRIBUTIONS -->
+      <div class="accordion-section">
+        <div class="accordion-header" onclick="toggleAccordion('contributions')">
+          <span class="accordion-title">🎯 <strong>Détail des contributions au score</strong></span>
+          <span class="accordion-score">${scoreResult.score}/100</span>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content" id="accordion-contributions" style="display: none;">
+          ${generateContributionsDetailHTML(scoreResult)}
+        </div>
+      </div>
+
+      <!-- 2. ANALYSE DÉTAILLÉE PAR CATÉGORIE -->
+      <div class="accordion-section">
+        <div class="accordion-header" onclick="toggleAccordion('categories')">
+          <span class="accordion-title">🔍 <strong>Analyse détaillée par catégorie</strong></span>
+          <span class="accordion-coverage">${scoreResult.metadata.parametres_testes_total}/${scoreResult.metadata.parametres_totaux_total} paramètres</span>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content" id="accordion-categories" style="display: none;">
+          ${generateCategoriesDetailHTML(scoreResult)}
+        </div>
+      </div>
+
+      <!-- 3. MÉTADONNÉES ET FIABILITÉ -->
+      <div class="accordion-section">
+        <div class="accordion-header" onclick="toggleAccordion('metadata')">
+          <span class="accordion-title">📊 <strong>Métadonnées et fiabilité</strong></span>
+          <span class="accordion-reliability">${scoreResult.fiabilite}% fiable</span>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content" id="accordion-metadata" style="display: none;">
+          ${generateMetadataDetailHTML(scoreResult)}
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+/**
+ * Génère le détail des contributions avec graphiques
+ */
+function generateContributionsDetailHTML(scoreResult) {
+  let html = `
+    <div class="contributions-detail">
+      <h5>📈 Répartition des points par catégorie</h5>
+      <div class="contributions-chart">
+  `;
+  
+  Object.entries(scoreResult.contributions).forEach(([categorie, contrib]) => {
+    const details = scoreResult.detailsParCategorie[categorie];
+    const couleur = contrib.score >= 75 ? '#28a745' : contrib.score >= 50 ? '#ffc107' : '#dc3545';
+    
+    html += `
+      <div class="contribution-bar-detail">
+        <div class="contribution-info">
+          <span class="contrib-name">${details.nom}</span>
+          <span class="contrib-weight">${(details.ponderation).toFixed(0)}%</span>
+          <span class="contrib-score">${contrib.score.toFixed(0)}/100</span>
+          <span class="contrib-points">${contrib.points.toFixed(1)} pts</span>
+        </div>
+        <div class="contribution-bar-container">
+          <div class="contribution-bar-bg">
+            <div class="contribution-bar-fill" style="width: ${contrib.score}%; background: ${couleur};"></div>
+          </div>
+          <div class="contribution-coverage">${contrib.parametres_testes}/${contrib.parametres_totaux} testés</div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `
+      </div>
+      <div class="contributions-summary">
+        <h6>💡 Interprétation des contributions</h6>
+        <ul>
+          <li><strong>Points</strong> : Contribution réelle au score final (pondérée)</li>
+          <li><strong>Score catégorie</strong> : Performance dans cette catégorie (0-100)</li>
+          <li><strong>Poids</strong> : Importance relative dans l'algorithme scientifique</li>
+          <li><strong>Couverture</strong> : Nombre de paramètres testés vs total possible</li>
+        </ul>
+      </div>
+    </div>
+  `;
+  
+  return html;
+}
+
+/**
+ * Génère l'analyse détaillée par catégorie
+ */
+function generateCategoriesDetailHTML(scoreResult) {
+  let html = `
+    <div class="categories-detail">
+      <h5>🔬 Analyse scientifique par catégorie</h5>
+  `;
+  
+  Object.entries(scoreResult.detailsParCategorie).forEach(([categorie, details]) => {
+    const contribution = scoreResult.contributions[categorie];
+    const couleurCategorie = contribution.score >= 75 ? '#28a745' : contribution.score >= 50 ? '#ffc107' : '#dc3545';
+    
+    html += `
+      <div class="category-detail-card" style="border-left: 4px solid ${couleurCategorie};">
+        <div class="category-detail-header">
+          <h6>${details.nom}</h6>
+          <span class="category-score-badge" style="background: ${couleurCategorie};">${contribution.score.toFixed(0)}/100</span>
+        </div>
+        <p class="category-description">${details.description}</p>
+        
+        <div class="category-stats">
+          <div class="stat-item">
+            <span class="stat-label">Pondération</span>
+            <span class="stat-value">${details.ponderation.toFixed(0)}%</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Contribution</span>
+            <span class="stat-value">${contribution.points.toFixed(1)} pts</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Couverture</span>
+            <span class="stat-value">${contribution.parametres_testes}/${contribution.parametres_totaux}</span>
+          </div>
+        </div>
+
+        <div class="category-parameters">
+          <h7>Paramètres de cette catégorie :</h7>
+          ${details.details.map(param => `
+            <div class="param-mini ${param.teste ? 'tested' : 'untested'}">
+              <span class="param-name">${param.nom}</span>
+              <span class="param-score">${param.score}/100</span>
+              ${param.teste ? 
+                `<span class="param-status">✅ Testé</span>` : 
+                `<span class="param-status">⚪ Bénéfice du doute</span>`
+              }
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Génère les métadonnées détaillées
+ */
+function generateMetadataDetailHTML(scoreResult) {
+  return `
+    <div class="metadata-detail">
+      <div class="metadata-grid">
+        <div class="metadata-card">
+          <h6>🔬 Algorithme</h6>
+          <p><strong>Version</strong> : ${scoreResult.metadata.version}</p>
+          <p><strong>Date calcul</strong> : ${new Date(scoreResult.metadata.dateCalcul).toLocaleString('fr-FR')}</p>
+          <p><strong>Analyse approfondie</strong> : ${scoreResult.metadata.analyseApprofondie ? 'Oui' : 'Non'}</p>
+          <p><strong>Corrections</strong> : ${scoreResult.metadata.corrections_appliquees ? scoreResult.metadata.corrections_appliquees.length : 0} appliquées</p>
+        </div>
+        
+        <div class="metadata-card">
+          <h6>📊 Données analysées</h6>
+          <p><strong>Paramètres testés</strong> : ${scoreResult.metadata.parametres_testes_total}</p>
+          <p><strong>Paramètres totaux</strong> : ${scoreResult.metadata.parametres_totaux_total}</p>
+          <p><strong>Fiabilité simple</strong> : ${scoreResult.metadata.fiabiliteSimple || 'N/A'}%</p>
+          <p><strong>Fiabilité pondérée</strong> : ${scoreResult.metadata.fiabilitePonderee || scoreResult.fiabilite}%</p>
+        </div>
+        
+        <div class="metadata-card">
+          <h6>📍 Source des données</h6>
+          <p><strong>Type</strong> : ${scoreResult.sourceInfo?.type || 'Non spécifié'}</p>
+          <p><strong>Commune</strong> : ${scoreResult.sourceInfo?.nomCommune || 'Non spécifiée'}</p>
+          ${scoreResult.sourceInfo?.distance ? 
+            `<p><strong>Distance</strong> : ${scoreResult.sourceInfo.distance.toFixed(1)} km</p>` : 
+            ''
+          }
+          <p><strong>Paramètres trouvés</strong> : ${scoreResult.sourceInfo?.nombreParametres || 0}</p>
+        </div>
+        
+        ${scoreResult.metadata.corrections_appliquees && scoreResult.metadata.corrections_appliquees.length > 0 ? `
+        <div class="metadata-card">
+          <h6>🔧 Corrections appliquées</h6>
+          <p><strong>Doublons supprimés</strong> : ${scoreResult.metadata.corrections_appliquees.length}</p>
+          <p><strong>Pondérations</strong> : Corrigées (100%)</p>
+          <p><strong>Unités</strong> : Standardisées</p>
+          <p><strong>Formules beta</strong> : Normalisées</p>
+        </div>
+        ` : ''}
+      </div>
+      
+      <div class="algorithm-info">
+        <h6>🧮 Principe de l'algorithme équitable v5.3.2</h6>
+        <ul>
+          <li><strong>Bénéfice du doute</strong> : Paramètres non testés = 50/100 (neutre)</li>
+          <li><strong>Transparence totale</strong> : Tous les paramètres importants affichés</li>
+          <li><strong>Pondération scientifique</strong> : Basée sur l'impact sanitaire réel</li>
+          <li><strong>Fiabilité pondérée</strong> : Calcul selon la criticité des paramètres testés</li>
+          <li><strong>Normes officielles</strong> : UE, OMS, Code de la santé publique français</li>
+          <li><strong>Corrections automatiques</strong> : Doublons, pondérations, unités</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Génère l'HTML pour le cas "aucune donnée"
+ */
+function generateNoDataHTML(scoreResult, adresse) {
+  return `
+    <div class="life-water-report">
+      <div class="life-water-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+        <h2>❌ <strong>Aucune donnée disponible</strong></h2>
+        <p>Désolé, nous n'avons trouvé aucune analyse de qualité d'eau pour cette adresse dans la base Hubeau.</p>
+        <p>Recherche étendue effectuée dans un rayon de 20km sans succès.</p>
+      </div>
+
+      <div class="resultat-principal" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+        <h3>📊 <strong>Résultat de votre recherche</strong></h3>
+        <p><strong>Adresse analysée :</strong> ${adresse}</p>
+        
+        <div class="score-display">
+          <div class="score-circle" style="border-color: #dc3545; color: #dc3545;">
+            <div class="score-number">❌</div>
+            <div class="score-label">Aucune donnée</div>
+          </div>
+          <div class="score-info">
+            <h4 style="color: #dc3545;">❌ DONNÉES MANQUANTES</h4>
+            <p class="score-message">Aucune donnée de qualité disponible</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-section">
+        <div class="recommandations">
+          <p><strong>🔍 Que faire maintenant ?</strong></p>
+          <ul>
+            ${scoreResult.recommandations.map(reco => `<li>${reco}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div class="complete-analysis-cta">
+          <h4>🔬 <strong>Analyse complète Life Water</strong></h4>
+          <p>${scoreResult.analyseComplete.message}</p>
+          <button onclick="alert('Contactez Life Water pour une analyse personnalisée')" style="background: #667eea; color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-weight: 600;">
+            🧪 Demander une analyse complète
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Fonction toggle pour les accordéons
+ */
+function toggleAccordion(sectionId) {
+  const content = document.getElementById(`accordion-${sectionId}`);
+  const header = content.previousElementSibling;
+  const arrow = header.querySelector('.accordion-arrow');
+  
+  if (content.style.display === 'none' || content.style.display === '') {
+    content.style.display = 'block';
+    arrow.textContent = '▲';
+    header.classList.add('expanded');
+    
+    // Animation d'apparition
+    content.style.opacity = '0';
+    content.style.transform = 'translateY(-10px)';
+    setTimeout(() => {
+      content.style.transition = 'all 0.3s ease';
+      content.style.opacity = '1';
+      content.style.transform = 'translateY(0)';
+    }, 10);
+  } else {
+    content.style.display = 'none';
+    arrow.textContent = '▼';
+    header.classList.remove('expanded');
+  }
+}
+
+/**
+ * Fonction toggle pour les catégories (accordéon legacy)
+ */
+function toggleCategory(categoryId) {
+  const details = document.getElementById('details-' + categoryId);
+  if (!details) return;
+  
+  const header = details.previousElementSibling;
+  
+  if (details.style.display === 'none' || details.style.display === '') {
+    details.style.display = 'block';
+    if (header) header.classList.add('expanded');
+  } else {
+    details.style.display = 'none';
+    if (header) header.classList.remove('expanded');
+  }
+}
+
+/**
+ * Génère le CSS pour les accordéons
+ */
+function generateAccordionCSS() {
+  return `<style>
+    /* ===== STYLES ACCORDÉON v5.3.2 ===== */
+    .accordion-sections {
+      margin: 30px 0;
+    }
+    
+    .accordion-section {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      margin: 15px 0;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .accordion-header {
+      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      padding: 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.3s ease;
+      border-bottom: 1px solid transparent;
+    }
+    
+    .accordion-header:hover {
+      background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+    }
+    
+    .accordion-header.expanded {
+      border-bottom-color: #e9ecef;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .accordion-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      flex: 1;
+    }
+    
+    .accordion-score, .accordion-coverage, .accordion-reliability {
+      background: rgba(255,255,255,0.9);
+      color: #333;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9em;
+      margin: 0 10px;
+    }
+    
+    .accordion-header.expanded .accordion-score,
+    .accordion-header.expanded .accordion-coverage,
+    .accordion-header.expanded .accordion-reliability {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+    
+    .accordion-arrow {
+      font-size: 1.2em;
+      transition: transform 0.3s ease;
+    }
+    
+    .accordion-content {
+      padding: 25px;
+      background: #f8f9fa;
+      border-top: 1px solid #e9ecef;
+    }
+    
+    /* Détail des contributions */
+    .contributions-detail h5 {
+      margin: 0 0 20px 0;
+      color: #333;
+      font-size: 1.2em;
+    }
+    
+    .contribution-bar-detail {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .contribution-info {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .contrib-name {
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .contrib-weight, .contrib-score, .contrib-points {
+      text-align: center;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #f1f3f4;
+      font-size: 0.9em;
+    }
+    
+    .contribution-bar-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .contribution-bar-bg {
+      flex: 1;
+      height: 12px;
+      background: #e9ecef;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    
+    .contribution-bar-fill {
+      height: 100%;
+      transition: width 1s ease;
+      border-radius: 6px;
+    }
+    
+    .contribution-coverage {
+      font-size: 0.8em;
+      color: #666;
+      white-space: nowrap;
+    }
+    
+    .contributions-summary {
+      background: rgba(102, 126, 234, 0.05);
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+    
+    .contributions-summary h6 {
+      margin: 0 0 10px 0;
+      color: #667eea;
+      font-size: 1em;
+    }
+    
+    .contributions-summary ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    
+    .contributions-summary li {
+      margin: 5px 0;
+      font-size: 0.9em;
+      color: #555;
+    }
+    
+    /* Détail des catégories */
+    .categories-detail h5 {
+      margin: 0 0 20px 0;
+      color: #333;
+      font-size: 1.2em;
+    }
+    
+    .category-detail-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 15px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .category-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .category-detail-header h6 {
+      margin: 0;
+      font-size: 1.1em;
+      color: #333;
+    }
+    
+    .category-score-badge {
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+    
+    .category-description {
+      color: #666;
+      font-style: italic;
+      margin: 10px 0 15px 0;
+      font-size: 0.95em;
+    }
+    
+    .category-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+      margin: 15px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-label {
+      display: block;
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    
+    .stat-value {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      font-size: 1.1em;
+    }
+    
+    .category-parameters {
+      margin-top: 15px;
+    }
+    
+    .category-parameters h7 {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 0.95em;
+    }
+    
+    .param-mini {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      margin: 5px 0;
+      border-radius: 6px;
+      font-size: 0.9em;
+    }
+    
+    .param-mini.tested {
+      background: rgba(40, 167, 69, 0.1);
+      border-left: 3px solid #28a745;
+    }
+    
+    .param-mini.untested {
+      background: rgba(108, 117, 125, 0.1);
+      border-left: 3px solid #6c757d;
+    }
+    
+    .param-name {
+      flex: 1;
+      font-weight: 500;
+    }
+    
+    .param-score {
+      margin: 0 10px;
+      font-weight: 600;
+    }
+    
+    .param-status {
+      font-size: 0.8em;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.7);
+    }
+    
+    /* Métadonnées */
+    .metadata-detail {
+      color: #333;
+    }
+    
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+    
+    .metadata-card {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    
+    .metadata-card h6 {
+      margin: 0 0 15px 0;
+      color: #667eea;
+      font-size: 1em;
+      border-bottom: 1px solid #e9ecef;
+      padding-bottom: 8px;
+    }
+    
+    .metadata-card p {
+      margin: 8px 0;
+      font-size: 0.9em;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .metadata-card strong {
+      color: #333;
+    }
+    
+    .algorithm-info {
+      background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(40, 167, 69, 0.02) 100%);
+      border: 1px solid rgba(40, 167, 69, 0.2);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    
+    .algorithm-info h6 {
+      margin: 0 0 15px 0;
+      color: #28a745;
+      font-size: 1.1em;
+    }
+    
+    .algorithm-info ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    
+    .algorithm-info li {
+      margin: 8px 0;
+      font-size: 0.9em;
+      color: #555;
+    }
+    
+    /* ===== STYLES LIFE WATER EXISTANTS ===== */
+    .life-water-report {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      background: white;
+      margin: 20px 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .life-water-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .life-water-header h2 {
+      margin: 0 0 15px 0;
+      font-size: 1.8em;
+      font-weight: 600;
+    }
+    
+    .life-water-header p {
+      margin: 10px 0;
+      font-size: 1em;
+      opacity: 0.95;
+      line-height: 1.5;
+    }
+    
+    .life-water-header hr {
+      border: none;
+      height: 1px;
+      background: rgba(255,255,255,0.3);
+      margin: 20px 0;
+    }
+    
+    .resultat-principal {
+      background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .resultat-principal h3 {
+      margin: 0 0 20px 0;
+      font-size: 1.5em;
+      font-weight: 600;
+    }
+    
+    .score-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 30px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+    }
+    
+    .score-circle {
+      width: 150px;
+      height: 150px;
+      border: 8px solid;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      font-weight: bold;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .score-number {
+      font-size: 2.5em;
+      line-height: 1;
+      font-weight: 700;
+    }
+    
+    .score-label {
+      font-size: 1em;
+      opacity: 0.7;
+      font-weight: 500;
+    }
+    
+    .score-info {
+      text-align: left;
+      max-width: 300px;
+    }
+    
+    .score-info h4 {
+      font-size: 2em;
+      margin: 0 0 10px 0;
+      font-weight: 600;
+    }
+    
+    .score-message {
+      font-size: 1.2em;
+      margin: 0 0 10px 0;
+      font-weight: 500;
+    }
+    
+    .score-details {
+      font-size: 0.9em;
+      opacity: 0.9;
+      margin: 5px 0 0 0;
+    }
+    
+    .fiabilite-section {
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    
+    .fiabilite-bar {
+      width: 100%;
+      height: 20px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    
+    .fiabilite-fill {
+      height: 100%;
+      transition: width 1s ease;
+    }
+    
+    .fiabilite-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0;
+    }
+    
+    .fiabilite-percentage {
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+    
+    .fiabilite-message {
+      font-size: 0.9em;
+      opacity: 0.9;
+      margin: 5px 0 0 0;
+    }
+    
+    .content-section {
+      padding: 30px;
+    }
+    
+    .points-attention {
+      background: #fff3cd;
+      border-left: 5px solid #ffc107;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .recommandations {
+      background: #d1ecf1;
+      border-left: 5px solid #17a2b8;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .complete-analysis-cta {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      margin: 30px 0;
+    }
+    
+    .complete-analysis-cta h4 {
+      margin: 0 0 15px 0;
+      font-size: 1.5em;
+    }
+    
+    .complete-analysis-cta p {
+      margin: 10px 0;
+      opacity: 0.95;
+    }
+    
+    .complete-analysis-cta button:hover {
+      background: #5a67d8 !important;
+      transform: translateY(-2px);
+      transition: all 0.3s ease;
+    }
+    
+    .footer-life-water {
+      background: #e9ecef;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #dee2e6;
+    }
+    
+    .life-water-report ul {
+      padding-left: 20px;
+      line-height: 1.6;
+    }
+    
+    .life-water-report li {
+      margin: 8px 0;
+    }
+    
+    /* Responsive */
+    @media screen and (max-width: 768px) {
+      .accordion-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      
+      .contribution-info {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        text-align: center;
+      }
+      
+      .category-stats {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      
+      .metadata-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .score-display {
+        flex-direction: column;
+        gap: 20px;
+      }
+      
+      .score-circle {
+        width: 120px;
+        height: 120px;
+      }
+      
+      .score-number {
+        font-size: 2em;
+      }
+      
+      .score-info {
+        text-align: center;
+      }
+    }
+  </style>`;
 }
 
 // ===== EXPORT GLOBAL =====
 if (typeof window !== 'undefined') {
+  // Fonctions principales corrigées
+  window.fetchHubeauDataWithFallback = fetchHubeauDataWithFallback;
+  window.fetchHubeauForCommuneComplete = fetchHubeauForCommuneComplete;
+  window.calculateLifeWaterScore = calculateLifeWaterScore;
+  window.generateLifeWaterHTML = generateLifeWaterHTML;
+  
+  // Fonctions de correction des doublons
+  window.dedoublonnerParametres = dedoublonnerParametres;
+  window.PARAMETRES_EQUIVALENTS = PARAMETRES_EQUIVALENTS;
+  
+  // Fonctions d'affichage améliorées
   window.formaterValeurParametre = formaterValeurParametre;
   window.getInterpretation = getInterpretation;
   window.genererBadgeQualite = genererBadgeQualite;
-  window.calculateLifeWaterScore = calculateLifeWaterScore;
-  window.generateLifeWaterHTML = generateLifeWaterHTML;
-  window.fetchHubeauDataWithFallback = fetchHubeauDataWithFallback;
+  
+  // Fonctions accordéon
+  window.generateAccordionSections = generateAccordionSections;
+  window.generateContributionsDetailHTML = generateContributionsDetailHTML;
+  window.generateCategoriesDetailHTML = generateCategoriesDetailHTML;
+  window.generateMetadataDetailHTML = generateMetadataDetailHTML;
+  window.generateNoDataHTML = generateNoDataHTML;
+  window.generateAccordionCSS = generateAccordionCSS;
+  window.toggleAccordion = toggleAccordion;
+  window.toggleCategory = toggleCategory;
+  
+  // Fonctions scientifiques
   window.calculerScoreSeuilMax = calculerScoreSeuilMax;
   window.calculerScoreOptimalCentral = calculerScoreOptimalCentral;
   window.calculerScoreParametre = calculerScoreParametre;
   window.calculerScoreCategorieComplete = calculerScoreCategorieComplete;
   window.getNomCategorie = getNomCategorie;
+  
+  // Fonctions utilitaires
   window.debugHubeauData = debugHubeauData;
-  window.toggleCategory = toggleCategory;
+  window.findNearbyCommunes = findNearbyCommunes;
+  window.calculateDistance = calculateDistance;
+  window.getParameterValue = getParameterValue;
+  window.cleanNumericValue = cleanNumericValue;
 }
 
-console.log('✅ Scoring Eau v5.3 - Algorithme Scientifique Équitable avec affichage amélioré chargé');
+console.log('✅ Scoring Eau v5.3.2 FINAL COMPLET - Algorithme Scientifique Équitable avec toutes corrections chargé');
+console.log('🔧 Corrections appliquées: Recherche étendue, dédoublonnage, pondérations, unités, accordéons');
+console.log('📊 Interface: Sections accordéon dépliantes, affichage amélioré, responsive design');
+console.log('🎯 Fonctionnalités: 3 accordéons interactifs, CSS complet, animations fluides');
